@@ -403,6 +403,24 @@
       overflow:hidden;
       text-overflow: ellipsis;
     }
+    .modesPanel[data-mode="black"] .chipCard{
+      background: rgba(0,0,0,.26);
+      border-color: rgba(255,255,255,.08);
+      box-shadow: 0 10px 30px rgba(0,0,0,.45);
+    }
+    .modesPanel[data-mode="black"] .chipCard .k{
+      color: rgba(159,178,208,.82);
+    }
+    .modesPanel[data-mode="black"] .chipCard .s{
+      color: rgba(159,178,208,.82);
+    }
+    .modeTabs{ display:flex; gap:8px; flex-wrap:wrap; }
+    .modesPanel{
+      margin-top:8px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
 
     .lineList{ display:flex; flex-direction:column; gap:8px; }
     .line{
@@ -531,12 +549,21 @@
       text-transform: uppercase;
       user-select:none;
     }
+    .field .sub{
+      font-size:10px;
+      color: rgba(159,178,208,.92);
+      letter-spacing:.12em;
+      text-transform: uppercase;
+      user-select:none;
+      flex:1;
+    }
     .field .row{
       margin-top:8px;
       display:flex;
       align-items:center;
       gap:10px;
     }
+    .field .row + .row{ margin-top:6px; }
     .field input[type="range"]{ width: 100%; }
     .field input[type="number"]{
       width: 110px;
@@ -547,6 +574,11 @@
       color: rgba(234,241,255,.92);
       font-variant-numeric: tabular-nums;
       outline:none;
+    }
+    .field input[type="checkbox"]{
+      width:18px;
+      height:18px;
+      accent-color: rgba(102,217,255,.8);
     }
     .field .v{
       margin-left:auto;
@@ -570,17 +602,17 @@
           <h1>TIME LEAK</h1>
           <p class="sub">
             Настройка: <code>?birth=1995-03-14&life=68</code> или <code>?end=2063-03-14T00:00:00</code>.
-            Клавиши: <b>F</b> full • <b>M</b> mute • <b>W</b> awake
+            Клавиши: <b>F</b> полный • <b>M</b> тишина • <b>W</b> бодрствование
           </p>
         </div>
 
         <div class="controls">
           <span class="chip" id="chipCfg">…</span>
-          <button id="btnParams" title="Параметры расчётов">params</button>
-          <button id="btnSound" aria-pressed="false" title="Звук (нужен клик)">sound</button>
-          <button id="btnMute" aria-pressed="true" title="Mute / Unmute">mute</button>
-          <button id="btnFullscreen" aria-pressed="false" title="Fullscreen (F)">full</button>
-          <button id="btnWake" aria-pressed="false" title="Always-on / Wake Lock (W)">awake</button>
+          <button id="btnParams" title="Параметры расчётов">параметры</button>
+          <button id="btnSound" aria-pressed="false" title="Звук (нужен клик)">звук</button>
+          <button id="btnMute" aria-pressed="true" title="Тишина / звук">тишина</button>
+          <button id="btnFullscreen" aria-pressed="false" title="Полный экран (F)">экран</button>
+          <button id="btnWake" aria-pressed="false" title="Не выключать экран (W)">бодр</button>
         </div>
       </div>
 
@@ -597,8 +629,8 @@
     </header>
 
     <div class="mobileNav" aria-label="Mobile panels">
-      <div class="tabBtn active" data-mtab="leak">leak</div>
-      <div class="tabBtn" data-mtab="stats">stats</div>
+      <div class="tabBtn active" data-mtab="leak">утечки</div>
+      <div class="tabBtn" data-mtab="stats">статы</div>
     </div>
 
     <main>
@@ -629,12 +661,13 @@
       <!-- STATS -->
       <section class="card active" id="panelStats">
         <div class="inner">
-          <div class="tabs" role="tablist" aria-label="Stats tabs">
-            <div class="tabBtn active" role="tab" tabindex="0" data-tab="remain">remain</div>
-            <div class="tabBtn" role="tab" tabindex="0" data-tab="lived">lived</div>
-            <div class="tabBtn" role="tab" tabindex="0" data-tab="bio">bio</div>
-            <div class="tabBtn" role="tab" tabindex="0" data-tab="today">today</div>
-            <div class="tabBtn" role="tab" tabindex="0" data-tab="system">system</div>
+          <div class="tabs" role="tablist" aria-label="Вкладки статистики">
+            <div class="tabBtn active" role="tab" tabindex="0" data-tab="remain">остаток</div>
+            <div class="tabBtn" role="tab" tabindex="0" data-tab="lived">прожито</div>
+            <div class="tabBtn" role="tab" tabindex="0" data-tab="bio">био</div>
+            <div class="tabBtn" role="tab" tabindex="0" data-tab="today">сегодня</div>
+            <div class="tabBtn" role="tab" tabindex="0" data-tab="system">система</div>
+            <div class="tabBtn" role="tab" tabindex="0" data-tab="modes">режимы</div>
           </div>
 
           <div class="tabBody">
@@ -642,12 +675,12 @@
             <div class="tabPanel active" id="tab-remain">
               <div class="label">Осталось — абсолютные единицы</div>
               <div class="chipsGrid">
-                <div class="chipCard"><div class="k">weeks</div><div class="v" id="rWeeks">…</div></div>
-                <div class="chipCard"><div class="k">days</div><div class="v" id="rDays">…</div></div>
-                <div class="chipCard"><div class="k">hours</div><div class="v" id="rHours">…</div></div>
-                <div class="chipCard"><div class="k">minutes</div><div class="v" id="rMinutes">…</div></div>
-                <div class="chipCard"><div class="k">seconds</div><div class="v" id="rSeconds">…</div></div>
-                <div class="chipCard"><div class="k">millis</div><div class="v" id="rMillis">…</div></div>
+                <div class="chipCard"><div class="k">недели</div><div class="v" id="rWeeks">…</div></div>
+                <div class="chipCard"><div class="k">дни</div><div class="v" id="rDays">…</div></div>
+                <div class="chipCard"><div class="k">часы</div><div class="v" id="rHours">…</div></div>
+                <div class="chipCard"><div class="k">минуты</div><div class="v" id="rMinutes">…</div></div>
+                <div class="chipCard"><div class="k">секунды</div><div class="v" id="rSeconds">…</div></div>
+                <div class="chipCard"><div class="k">миллисекунды</div><div class="v" id="rMillis">…</div></div>
               </div>
               <div class="hint">1 день = 24ч = 1440 мин = 86400 сек = 86400000 мс.</div>
             </div>
@@ -656,18 +689,18 @@
             <div class="tabPanel" id="tab-lived">
               <div class="label">Прожито — абсолютные единицы</div>
               <div class="chipsGrid">
-                <div class="chipCard"><div class="k">years</div><div class="v" id="lYears">…</div><div class="s" id="lYearsS">…</div></div>
-                <div class="chipCard"><div class="k">months</div><div class="v" id="lMonths">…</div><div class="s" id="lMonthsS">…</div></div>
-                <div class="chipCard"><div class="k">weeks</div><div class="v" id="lWeeks">…</div></div>
-                <div class="chipCard"><div class="k">days</div><div class="v" id="lDays">…</div></div>
-                <div class="chipCard"><div class="k">hours</div><div class="v" id="lHours">…</div></div>
-                <div class="chipCard"><div class="k">minutes</div><div class="v" id="lMinutes">…</div></div>
-                <div class="chipCard"><div class="k">seconds</div><div class="v" id="lSeconds">…</div></div>
-                <div class="chipCard"><div class="k">millis</div><div class="v" id="lMillis">…</div></div>
-                <div class="chipCard"><div class="k">sunrises</div><div class="v" id="lSunrises">…</div><div class="s">≈ дней</div></div>
-                <div class="chipCard"><div class="k">new moons</div><div class="v" id="lMoons">…</div><div class="s">≈ 29.53 дня</div></div>
-                <div class="chipCard"><div class="k">seasons</div><div class="v" id="lSeasons">…</div><div class="s">≈ 91.31 дня</div></div>
-                <div class="chipCard"><div class="k">movies (2h)</div><div class="v" id="lMovies">…</div><div class="s">если без сна</div></div>
+                <div class="chipCard"><div class="k">годы</div><div class="v" id="lYears">…</div><div class="s" id="lYearsS">…</div></div>
+                <div class="chipCard"><div class="k">месяцы</div><div class="v" id="lMonths">…</div><div class="s" id="lMonthsS">…</div></div>
+                <div class="chipCard"><div class="k">недели</div><div class="v" id="lWeeks">…</div></div>
+                <div class="chipCard"><div class="k">дни</div><div class="v" id="lDays">…</div></div>
+                <div class="chipCard"><div class="k">часы</div><div class="v" id="lHours">…</div></div>
+                <div class="chipCard"><div class="k">минуты</div><div class="v" id="lMinutes">…</div></div>
+                <div class="chipCard"><div class="k">секунды</div><div class="v" id="lSeconds">…</div></div>
+                <div class="chipCard"><div class="k">миллисекунды</div><div class="v" id="lMillis">…</div></div>
+                <div class="chipCard"><div class="k">рассветы</div><div class="v" id="lSunrises">…</div><div class="s">≈ дней</div></div>
+                <div class="chipCard"><div class="k">новолуния</div><div class="v" id="lMoons">…</div><div class="s">≈ 29.53 дня</div></div>
+                <div class="chipCard"><div class="k">сезоны</div><div class="v" id="lSeasons">…</div><div class="s">≈ 91.31 дня</div></div>
+                <div class="chipCard"><div class="k">фильмы (2ч)</div><div class="v" id="lMovies">…</div><div class="s">если без сна</div></div>
               </div>
               <div class="hint">Где нужно — это оценки. Точные календарные “лет/мес” считаются отдельно.</div>
             </div>
@@ -676,23 +709,23 @@
             <div class="tabPanel" id="tab-bio">
               <div class="label">Био/энергия — оценки</div>
               <div class="chipsGrid">
-                <div class="chipCard"><div class="k">heartbeats</div><div class="v" id="bBeats">…</div><div class="s" id="bBeatsS">…</div></div>
-                <div class="chipCard"><div class="k">breaths</div><div class="v" id="bBreaths">…</div><div class="s" id="bBreathsS">…</div></div>
-                <div class="chipCard"><div class="k">blinks</div><div class="v" id="bBlinks">…</div><div class="s">≈ 15/мин</div></div>
-                <div class="chipCard"><div class="k">sleep</div><div class="v" id="bSleepH">…</div><div class="s" id="bSleepS">…</div></div>
+                <div class="chipCard"><div class="k">сердцебиения</div><div class="v" id="bBeats">…</div><div class="s" id="bBeatsS">…</div></div>
+                <div class="chipCard"><div class="k">вдохи</div><div class="v" id="bBreaths">…</div><div class="s" id="bBreathsS">…</div></div>
+                <div class="chipCard"><div class="k">моргания</div><div class="v" id="bBlinks">…</div><div class="s">≈ 15/мин</div></div>
+                <div class="chipCard"><div class="k">сон</div><div class="v" id="bSleepH">…</div><div class="s" id="bSleepS">…</div></div>
 
-                <div class="chipCard"><div class="k">oxygen (L)</div><div class="v" id="bO2L">…</div><div class="s" id="bO2S">…</div></div>
-                <div class="chipCard"><div class="k">oxygen (kg)</div><div class="v" id="bO2Kg">…</div><div class="s">через MET</div></div>
-                <div class="chipCard"><div class="k">calories (kcal)</div><div class="v" id="bKcal">…</div><div class="s" id="bKcalS">…</div></div>
-                <div class="chipCard"><div class="k">heat (GJ)</div><div class="v" id="bGJ">…</div><div class="s">1 kcal = 4184 J</div></div>
+                <div class="chipCard"><div class="k">кислород (л)</div><div class="v" id="bO2L">…</div><div class="s" id="bO2S">…</div></div>
+                <div class="chipCard"><div class="k">кислород (кг)</div><div class="v" id="bO2Kg">…</div><div class="s">через MET</div></div>
+                <div class="chipCard"><div class="k">калории (ккал)</div><div class="v" id="bKcal">…</div><div class="s" id="bKcalS">…</div></div>
+                <div class="chipCard"><div class="k">тепло (ГДж)</div><div class="v" id="bGJ">…</div><div class="s">1 ккал = 4184 Дж</div></div>
 
-                <div class="chipCard"><div class="k">CO₂ (kg)</div><div class="v" id="bCO2Kg">…</div><div class="s">≈ RQ</div></div>
-                <div class="chipCard"><div class="k">blood pumped (L)</div><div class="v" id="bBloodL">…</div><div class="s" id="bBloodS">…</div></div>
-                <div class="chipCard"><div class="k">steps</div><div class="v" id="bSteps">…</div><div class="s" id="bStepsS">…</div></div>
-                <div class="chipCard"><div class="k">distance (km)</div><div class="v" id="bKm">…</div><div class="s">шаг</div></div>
+                <div class="chipCard"><div class="k">CO₂ (кг)</div><div class="v" id="bCO2Kg">…</div><div class="s">≈ RQ</div></div>
+                <div class="chipCard"><div class="k">кровь (л)</div><div class="v" id="bBloodL">…</div><div class="s" id="bBloodS">…</div></div>
+                <div class="chipCard"><div class="k">шаги</div><div class="v" id="bSteps">…</div><div class="s" id="bStepsS">…</div></div>
+                <div class="chipCard"><div class="k">дистанция (км)</div><div class="v" id="bKm">…</div><div class="s">длина шага</div></div>
               </div>
               <div class="hint">
-                Всё в этом табе — оценочно. Нажми <span class="kbd">params</span>, чтобы подкрутить вес/активность/пульс/дыхание/сон/шаги.
+                Всё в этом табе — оценочно. Нажми <span class="kbd">параметры</span>, чтобы подкрутить вес/активность/пульс/дыхание/сон/шаги.
               </div>
             </div>
 
@@ -708,12 +741,26 @@
             <div class="tabPanel" id="tab-system">
               <div class="label">Системные строки</div>
               <div class="lineList">
-                <div class="line"><div class="k">now</div><div class="v" id="nowLine">…</div></div>
-                <div class="line"><div class="k">birth</div><div class="v" id="birthLine">…</div></div>
-                <div class="line"><div class="k">end</div><div class="v" id="endLine">…</div></div>
+                <div class="line"><div class="k">сейчас</div><div class="v" id="nowLine">…</div></div>
+                <div class="line"><div class="k">рождение</div><div class="v" id="birthLine">…</div></div>
+                <div class="line"><div class="k">конец</div><div class="v" id="endLine">…</div></div>
               </div>
               <div class="hint">
-                <span class="kbd">F</span> fullscreen • <span class="kbd">M</span> mute • <span class="kbd">W</span> always-on
+                <span class="kbd">F</span> полный экран • <span class="kbd">M</span> тишина • <span class="kbd">W</span> бодрствование
+              </div>
+            </div>
+
+            <!-- MODES -->
+            <div class="tabPanel" id="tab-modes">
+              <div class="modeTabs" role="tablist" aria-label="Режимы">
+                <div class="tabBtn active" role="tab" tabindex="0" data-mode="hardcore">Жёстко</div>
+                <div class="tabBtn" role="tab" tabindex="0" data-mode="family">Семья</div>
+                <div class="tabBtn" role="tab" tabindex="0" data-mode="anime">Аниме</div>
+                <div class="tabBtn" role="tab" tabindex="0" data-mode="black">Тьма</div>
+              </div>
+              <div class="modesPanel" id="modesPanel" data-mode="hardcore">
+                <div class="chipsGrid" id="modesGridMain"></div>
+                <div class="chipsGrid" id="modesGridExtra"></div>
               </div>
             </div>
 
@@ -725,17 +772,17 @@
 
   <!-- PARAMS MODAL -->
   <div class="modal" id="modal">
-    <div class="modalCard" role="dialog" aria-modal="true" aria-label="Parameters">
+    <div class="modalCard" role="dialog" aria-modal="true" aria-label="Параметры">
       <div class="modalHead">
-        <div class="t">PARAMS — assumptions for estimates</div>
+        <div class="t">Параметры — допущения</div>
         <div style="display:flex; gap:8px; align-items:center;">
-          <button id="btnReset" title="Сбросить к дефолту">reset</button>
-          <button id="btnClose" title="Закрыть">close</button>
+          <button id="btnReset" title="Сбросить к дефолту">сброс</button>
+          <button id="btnClose" title="Закрыть">закрыть</button>
         </div>
       </div>
       <div class="modalBody">
         <div class="field">
-          <div class="k">weight (kg)</div>
+          <div class="k">Вес (кг)</div>
           <div class="row">
             <input id="wRange" type="range" min="45" max="140" step="1">
             <input id="wNum" type="number" min="30" max="250" step="1">
@@ -744,7 +791,7 @@
         </div>
 
         <div class="field">
-          <div class="k">avg activity (MET)</div>
+          <div class="k">Средняя активность (MET)</div>
           <div class="row">
             <input id="metRange" type="range" min="1.0" max="3.0" step="0.05">
             <input id="metNum" type="number" min="0.8" max="6.0" step="0.05">
@@ -753,7 +800,7 @@
         </div>
 
         <div class="field">
-          <div class="k">heart rate (bpm)</div>
+          <div class="k">Пульс (уд/мин)</div>
           <div class="row">
             <input id="hrRange" type="range" min="45" max="120" step="1">
             <input id="hrNum" type="number" min="30" max="200" step="1">
@@ -762,7 +809,7 @@
         </div>
 
         <div class="field">
-          <div class="k">breaths per minute</div>
+          <div class="k">Дыхание (вдох/мин)</div>
           <div class="row">
             <input id="brRange" type="range" min="8" max="24" step="1">
             <input id="brNum" type="number" min="6" max="40" step="1">
@@ -771,7 +818,7 @@
         </div>
 
         <div class="field">
-          <div class="k">sleep (hours/day)</div>
+          <div class="k">Сон (ч/день)</div>
           <div class="row">
             <input id="slRange" type="range" min="4.0" max="10.0" step="0.1">
             <input id="slNum" type="number" min="0" max="16" step="0.1">
@@ -780,7 +827,7 @@
         </div>
 
         <div class="field">
-          <div class="k">steps per day</div>
+          <div class="k">Шаги в день</div>
           <div class="row">
             <input id="stRange" type="range" min="500" max="20000" step="100">
             <input id="stNum" type="number" min="0" max="60000" step="100">
@@ -789,7 +836,7 @@
         </div>
 
         <div class="field">
-          <div class="k">step length (m)</div>
+          <div class="k">Длина шага (м)</div>
           <div class="row">
             <input id="lenRange" type="range" min="0.55" max="0.95" step="0.01">
             <input id="lenNum" type="number" min="0.3" max="1.5" step="0.01">
@@ -798,7 +845,7 @@
         </div>
 
         <div class="field">
-          <div class="k">cardiac output (L/min)</div>
+          <div class="k">Сердечный выброс (л/мин)</div>
           <div class="row">
             <input id="coRange" type="range" min="3.0" max="9.0" step="0.1">
             <input id="coNum" type="number" min="1" max="20" step="0.1">
@@ -806,11 +853,114 @@
           </div>
         </div>
 
+        <div class="field">
+          <div class="k">Бюджеты времени</div>
+          <div class="row">
+            <div class="sub">Учитывать сон</div>
+            <input id="sleepBudgetToggle" type="checkbox">
+          </div>
+          <div class="row">
+            <div class="sub">Экран, ч/день</div>
+            <input id="screenNum" type="number" min="0" max="16" step="0.1">
+          </div>
+          <div class="row">
+            <div class="sub">Игры, ч/день</div>
+            <input id="gamingNum" type="number" min="0" max="16" step="0.1">
+          </div>
+          <div class="row">
+            <div class="sub">Аниме, мин/день</div>
+            <input id="animeMinNum" type="number" min="0" max="600" step="5">
+          </div>
+          <div class="row">
+            <div class="sub">Чтение, стр/день</div>
+            <input id="readingNum" type="number" min="0" max="300" step="1">
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="k">Средние по контенту</div>
+          <div class="row">
+            <div class="sub">Фильм, мин</div>
+            <input id="movieMinNum" type="number" min="40" max="240" step="1">
+          </div>
+          <div class="row">
+            <div class="sub">Серия, мин</div>
+            <input id="episodeMinNum" type="number" min="10" max="60" step="1">
+          </div>
+          <div class="row">
+            <div class="sub">Сезон, серий</div>
+            <input id="seasonEpsNum" type="number" min="6" max="60" step="1">
+          </div>
+          <div class="row">
+            <div class="sub">Игра, ч</div>
+            <input id="gameHoursNum" type="number" min="5" max="200" step="1">
+          </div>
+          <div class="row">
+            <div class="sub">Книга, стр</div>
+            <input id="bookPagesNum" type="number" min="80" max="1200" step="10">
+          </div>
+          <div class="row">
+            <div class="sub">Подкаст, мин</div>
+            <input id="podcastMinNum" type="number" min="10" max="180" step="1">
+          </div>
+          <div class="row">
+            <div class="sub">Трек, мин</div>
+            <input id="songMinNum" type="number" min="1" max="10" step="0.1">
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="k">Семья</div>
+          <div class="row">
+            <div class="sub">Вечера с ребёнком/нед</div>
+            <input id="familyEveningsNum" type="number" min="0" max="14" step="1">
+          </div>
+          <div class="row">
+            <div class="sub">Сказки на ночь/нед</div>
+            <input id="bedtimeStoriesNum" type="number" min="0" max="14" step="1">
+          </div>
+          <div class="row">
+            <div class="sub">Прогулки/нед</div>
+            <input id="walksNum" type="number" min="0" max="14" step="1">
+          </div>
+          <div class="row">
+            <div class="sub">Совместные приёмы пищи/день</div>
+            <input id="sharedMealsNum" type="number" min="0" max="6" step="1">
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="k">Тьма</div>
+          <div class="row">
+            <div class="sub">«Потом»/день</div>
+            <input id="laterNum" type="number" min="0" max="40" step="1">
+          </div>
+          <div class="row">
+            <div class="sub">Обещаний/год</div>
+            <input id="promisesNum" type="number" min="0" max="100" step="1">
+          </div>
+          <div class="row">
+            <div class="sub">Проектов начато/год</div>
+            <input id="projectsStartedNum" type="number" min="0" max="50" step="1">
+          </div>
+          <div class="row">
+            <div class="sub">Доля завершённых</div>
+            <input id="projectsFinishedNum" type="number" min="0" max="1" step="0.01">
+          </div>
+          <div class="row">
+            <div class="sub">Отложенных разговоров/нед</div>
+            <input id="delayedTalksNum" type="number" min="0" max="40" step="1">
+          </div>
+          <div class="row">
+            <div class="sub">Отложенных мыслей/день</div>
+            <input id="postponedThoughtsNum" type="number" min="0" max="50" step="1">
+          </div>
+        </div>
+
         <div class="field" style="grid-column: 1 / -1;">
-          <div class="k">note</div>
+          <div class="k">Примечание</div>
           <div class="hint">
-            MET — грубая “средняя активность за жизнь”. 1.0 ≈ в основном сидя, 1.4–1.8 ≈ обычная жизнь, 2.2+ ≈ очень активная.
-            Все расчёты — оценки, не медицина.
+            MET — грубая “средняя активность”. Все расчёты — оценки, не медицина.
           </div>
         </div>
       </div>
@@ -910,11 +1060,264 @@
     const tabBtns = Array.from(document.querySelectorAll("#panelStats .tabBtn[data-tab]"));
     function setTab(name){
       tabBtns.forEach(b => b.classList.toggle("active", b.dataset.tab === name));
-      ["remain","lived","bio","today","system"].forEach(t => {
+      ["remain","lived","bio","today","system","modes"].forEach(t => {
         document.getElementById(`tab-${t}`).classList.toggle("active", t === name);
       });
     }
     tabBtns.forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
+
+    // ===== modes =====
+    const modeBtns = Array.from(document.querySelectorAll("#tab-modes .tabBtn[data-mode]"));
+    const modesPanel = el("modesPanel");
+    const modesGridMain = el("modesGridMain");
+    const modesGridExtra = el("modesGridExtra");
+    let currentMode = "hardcore";
+    let lastModesKey = "";
+    let modesContext = null;
+
+    function renderChipGrid(container, items){
+      container.innerHTML = "";
+      items.forEach(({ k, v, s }) => {
+        const card = document.createElement("div");
+        card.className = "chipCard";
+        const kEl = document.createElement("div");
+        kEl.className = "k";
+        kEl.textContent = k;
+        const vEl = document.createElement("div");
+        vEl.className = "v";
+        vEl.textContent = v;
+        card.appendChild(kEl);
+        card.appendChild(vEl);
+        if (s){
+          const sEl = document.createElement("div");
+          sEl.className = "s";
+          sEl.textContent = s;
+          card.appendChild(sEl);
+        }
+        container.appendChild(card);
+      });
+    }
+
+    function setMode(name){
+      currentMode = name;
+      modeBtns.forEach(b => b.classList.toggle("active", b.dataset.mode === name));
+      modesPanel.dataset.mode = name;
+      renderModes(modesContext);
+    }
+    modeBtns.forEach(b => b.addEventListener("click", () => setMode(b.dataset.mode)));
+
+    function renderModes(context){
+      if (!context) return;
+      const {
+        remainingDays,
+        remainingHours,
+        remainingYears,
+        awakeHoursTotal,
+        availableScreenHours,
+        availableGamingHours,
+        animeMinutesTotal
+      } = context;
+
+      let main = [];
+      let extra = [];
+      if (currentMode === "hardcore"){
+        const movies = Math.floor((availableScreenHours * 60) / params.movieMin);
+        const animeEpisodes = Math.floor((availableScreenHours * 60) / params.episodeMin);
+        const animeSeasons = Math.floor(animeEpisodes / params.seasonEps);
+        const games = Math.floor(availableGamingHours / params.gameHoursPerGame);
+        const books = Math.floor((remainingDays * params.readingPagesPerDay) / params.bookPages);
+        const podcasts = Math.floor((availableScreenHours * 60) / params.podcastMin);
+        const songs = Math.floor((availableScreenHours * 60) / params.songMin);
+
+        main = [
+          {
+            k: "фильмов",
+            v: fmtInt(movies),
+            s: `Экран: ${fmtFloat(params.screenHoursPerDay,1)} ч/день • Фильм: ${fmtInt(params.movieMin)} мин`
+          },
+          {
+            k: "серий аниме",
+            v: fmtInt(animeEpisodes),
+            s: `Экран: ${fmtFloat(params.screenHoursPerDay,1)} ч/день • Серия: ${fmtInt(params.episodeMin)} мин`
+          },
+          {
+            k: "сезонов аниме",
+            v: fmtInt(animeSeasons),
+            s: `Сезон: ${fmtInt(params.seasonEps)} серий`
+          },
+          {
+            k: "игр пройдено",
+            v: fmtInt(games),
+            s: `Игры: ${fmtFloat(params.gamingHoursPerDay,1)} ч/день • Игра: ${fmtInt(params.gameHoursPerGame)} ч`
+          },
+          {
+            k: "книг",
+            v: fmtInt(books),
+            s: `Чтение: ${fmtInt(params.readingPagesPerDay)} стр/день • Книга: ${fmtInt(params.bookPages)} стр`
+          },
+          {
+            k: "подкастов",
+            v: fmtInt(podcasts),
+            s: `Выпуск: ${fmtInt(params.podcastMin)} мин`
+          },
+          {
+            k: "треков",
+            v: fmtInt(songs),
+            s: `Трек: ${fmtFloat(params.songMin,1)} мин`
+          }
+        ];
+      }
+      if (currentMode === "family"){
+        const familyEvenings = Math.floor((remainingDays / 7) * params.familyEveningsPerWeek);
+        const bedtimeStories = Math.floor((remainingDays / 7) * params.bedtimeStoriesPerWeek);
+        const walks = Math.floor((remainingDays / 7) * params.walksPerWeek);
+        const sharedMeals = Math.floor(remainingDays * params.sharedMealsPerDay);
+        const birthdays = Math.floor(remainingYears);
+        const summers = Math.floor(remainingYears);
+
+        main = [
+          {
+            k: "вечеров с ребёнком",
+            v: fmtInt(familyEvenings),
+            s: `Частота: ${fmtInt(params.familyEveningsPerWeek)}/нед`
+          },
+          {
+            k: "сказок на ночь",
+            v: fmtInt(bedtimeStories),
+            s: `Частота: ${fmtInt(params.bedtimeStoriesPerWeek)}/нед`
+          },
+          {
+            k: "прогулок",
+            v: fmtInt(walks),
+            s: `Частота: ${fmtInt(params.walksPerWeek)}/нед`
+          },
+          {
+            k: "совместных приёмов пищи",
+            v: fmtInt(sharedMeals),
+            s: `Частота: ${fmtInt(params.sharedMealsPerDay)}/день`
+          },
+          {
+            k: "дней рождения",
+            v: fmtInt(birthdays),
+            s: "≈ раз в год"
+          },
+          {
+            k: "летних сезонов",
+            v: fmtInt(summers),
+            s: "≈ по одному в год"
+          }
+        ];
+      }
+      if (currentMode === "anime"){
+        const animeEpisodes = Math.floor(animeMinutesTotal / params.episodeMin);
+        const animeSeasons = Math.floor(animeEpisodes / params.seasonEps);
+        const cours = Math.floor(animeEpisodes / 12);
+        const ova = Math.floor(animeMinutesTotal / 40);
+        const animeMovies = Math.floor(animeMinutesTotal / params.movieMin);
+        const mechaSeries = Math.floor(animeEpisodes / 26);
+        const mechaMovies = Math.floor(animeMinutesTotal / 120);
+        const eva = Math.floor(animeMinutesTotal / 711);
+
+        main = [
+          {
+            k: "серий аниме",
+            v: fmtInt(animeEpisodes),
+            s: `Серия: ${fmtInt(params.episodeMin)} мин`
+          },
+          {
+            k: "сезонов",
+            v: fmtInt(animeSeasons),
+            s: `Сезон: ${fmtInt(params.seasonEps)} серий`
+          },
+          {
+            k: "курсов",
+            v: fmtInt(cours),
+            s: "Курс = 12 серий"
+          },
+          {
+            k: "OVA",
+            v: fmtInt(ova),
+            s: "OVA: 40 мин"
+          },
+          {
+            k: "аниме-фильмов",
+            v: fmtInt(animeMovies),
+            s: `Фильм: ${fmtInt(params.movieMin)} мин`
+          }
+        ];
+        extra = [
+          {
+            k: "меха-сериалов",
+            v: fmtInt(mechaSeries),
+            s: "Сериал: 26 серий"
+          },
+          {
+            k: "меха-фильмов",
+            v: fmtInt(mechaMovies),
+            s: "Фильм: 120 мин"
+          },
+          {
+            k: "пересмотров «Евы»",
+            v: fmtInt(eva),
+            s: "NGE + End of Evangelion"
+          }
+        ];
+      }
+      if (currentMode === "black"){
+        const saidLater = Math.floor(remainingDays * params.laterPerDay);
+        const promises = Math.floor(remainingYears * params.promisesPerYear);
+        const started = Math.floor(remainingYears * params.projectsStartedPerYear);
+        const finished = Math.floor(started * params.projectsFinishedRatio);
+        const delayedTalks = Math.floor((remainingDays / 7) * params.delayedTalksPerWeek);
+        const postponedThoughts = Math.floor(remainingDays * params.postponedThoughtsPerDay);
+
+        main = [
+          {
+            k: "«потом»",
+            v: fmtInt(saidLater),
+            s: `${fmtInt(params.laterPerDay)} раз/день`
+          },
+          {
+            k: "обещаний",
+            v: fmtInt(promises),
+            s: `${fmtInt(params.promisesPerYear)}/год`
+          },
+          {
+            k: "проектов начнёшь",
+            v: fmtInt(started),
+            s: `${fmtInt(params.projectsStartedPerYear)}/год`
+          },
+          {
+            k: "проектов закончишь",
+            v: fmtInt(finished),
+            s: `Доля: ${fmtFloat(params.projectsFinishedRatio,2)}`
+          },
+          {
+            k: "отложенных разговоров",
+            v: fmtInt(delayedTalks),
+            s: `${fmtInt(params.delayedTalksPerWeek)}/нед`
+          },
+          {
+            k: "отложенных мыслей",
+            v: fmtInt(postponedThoughts),
+            s: `${fmtInt(params.postponedThoughtsPerDay)}/день`
+          }
+        ];
+      }
+
+      const key = JSON.stringify({ mode: currentMode, main, extra, awakeHoursTotal });
+      if (key === lastModesKey) return;
+      lastModesKey = key;
+
+      renderChipGrid(modesGridMain, main);
+      if (extra.length){
+        modesGridExtra.style.display = "grid";
+        renderChipGrid(modesGridExtra, extra);
+      } else {
+        modesGridExtra.style.display = "none";
+        modesGridExtra.innerHTML = "";
+      }
+    }
 
     // ===== PARAMS storage =====
     const DEFAULT_PARAMS = {
@@ -926,6 +1329,28 @@
       stepsPerDay: 6500,
       stepLenM: 0.75,
       cardiacOutputLpm: 5.0,
+      includeSleepInBudgets: true,
+      screenHoursPerDay: 2.2,
+      gamingHoursPerDay: 1.5,
+      animeMinutesPerDay: 90,
+      readingPagesPerDay: 18,
+      movieMin: 110,
+      episodeMin: 24,
+      seasonEps: 12,
+      gameHoursPerGame: 35,
+      bookPages: 320,
+      podcastMin: 55,
+      songMin: 3.5,
+      familyEveningsPerWeek: 4,
+      bedtimeStoriesPerWeek: 3,
+      walksPerWeek: 3,
+      sharedMealsPerDay: 1,
+      laterPerDay: 3,
+      promisesPerYear: 12,
+      projectsStartedPerYear: 4,
+      projectsFinishedRatio: 0.35,
+      delayedTalksPerWeek: 5,
+      postponedThoughtsPerDay: 8,
       rq: 0.85 // respiratory quotient for CO2 estimate
     };
     const LS_KEY = "timeleak_params_v1";
@@ -965,6 +1390,31 @@
       n.addEventListener("input", (e)=>apply(e.target.value));
       setUI(params[key]);
     }
+    function bindNumber(numId, key){
+      const n = el(numId);
+      const setUI = (v)=>{
+        const vv = typeof v === "number" ? v : Number(v);
+        n.value = vv;
+      };
+      const apply = (v)=>{
+        params[key] = Number(v);
+        setUI(params[key]);
+        saveParams(params);
+      };
+      n.addEventListener("input", (e)=>apply(e.target.value));
+      setUI(params[key]);
+    }
+    function bindToggle(toggleId, key){
+      const t = el(toggleId);
+      const setUI = (v)=>{ t.checked = Boolean(v); };
+      const apply = (v)=>{
+        params[key] = Boolean(v);
+        setUI(params[key]);
+        saveParams(params);
+      };
+      t.addEventListener("change", (e)=>apply(e.target.checked));
+      setUI(params[key]);
+    }
 
     el("btnParams").addEventListener("click", () => { openModal(); });
     el("btnClose").addEventListener("click", closeModal);
@@ -978,14 +1428,36 @@
     });
 
     function initParamsUI(){
-      bindRange("wRange","wNum","wOut","weightKg",(v)=>`${v} kg`);
+      bindRange("wRange","wNum","wOut","weightKg",(v)=>`${v} кг`);
       bindRange("metRange","metNum","metOut","met",(v)=>fmtFloat(v,2));
-      bindRange("hrRange","hrNum","hrOut","heartBpm",(v)=>`${v} bpm`);
-      bindRange("brRange","brNum","brOut","breathsPerMin",(v)=>`${v}/min`);
-      bindRange("slRange","slNum","slOut","sleepHoursPerDay",(v)=>`${fmtFloat(v,1)} h`);
+      bindRange("hrRange","hrNum","hrOut","heartBpm",(v)=>`${v} уд/мин`);
+      bindRange("brRange","brNum","brOut","breathsPerMin",(v)=>`${v}/мин`);
+      bindRange("slRange","slNum","slOut","sleepHoursPerDay",(v)=>`${fmtFloat(v,1)} ч`);
       bindRange("stRange","stNum","stOut","stepsPerDay",(v)=>fmtInt(v));
-      bindRange("lenRange","lenNum","lenOut","stepLenM",(v)=>`${fmtFloat(v,2)} m`);
-      bindRange("coRange","coNum","coOut","cardiacOutputLpm",(v)=>`${fmtFloat(v,1)} L/min`);
+      bindRange("lenRange","lenNum","lenOut","stepLenM",(v)=>`${fmtFloat(v,2)} м`);
+      bindRange("coRange","coNum","coOut","cardiacOutputLpm",(v)=>`${fmtFloat(v,1)} л/мин`);
+      bindToggle("sleepBudgetToggle","includeSleepInBudgets");
+      bindNumber("screenNum","screenHoursPerDay");
+      bindNumber("gamingNum","gamingHoursPerDay");
+      bindNumber("animeMinNum","animeMinutesPerDay");
+      bindNumber("readingNum","readingPagesPerDay");
+      bindNumber("movieMinNum","movieMin");
+      bindNumber("episodeMinNum","episodeMin");
+      bindNumber("seasonEpsNum","seasonEps");
+      bindNumber("gameHoursNum","gameHoursPerGame");
+      bindNumber("bookPagesNum","bookPages");
+      bindNumber("podcastMinNum","podcastMin");
+      bindNumber("songMinNum","songMin");
+      bindNumber("familyEveningsNum","familyEveningsPerWeek");
+      bindNumber("bedtimeStoriesNum","bedtimeStoriesPerWeek");
+      bindNumber("walksNum","walksPerWeek");
+      bindNumber("sharedMealsNum","sharedMealsPerDay");
+      bindNumber("laterNum","laterPerDay");
+      bindNumber("promisesNum","promisesPerYear");
+      bindNumber("projectsStartedNum","projectsStartedPerYear");
+      bindNumber("projectsFinishedNum","projectsFinishedRatio");
+      bindNumber("delayedTalksNum","delayedTalksPerWeek");
+      bindNumber("postponedThoughtsNum","postponedThoughtsPerDay");
     }
     initParamsUI();
 
@@ -1007,8 +1479,8 @@
     function setSoundButtons(){
       el("btnSound").setAttribute("aria-pressed", audio.running ? "true" : "false");
       el("btnMute").setAttribute("aria-pressed", audio.muted ? "true" : "false");
-      el("btnSound").textContent = audio.running ? "sound:on" : "sound:off";
-      el("btnMute").textContent = audio.muted ? "mute:on" : "mute:off";
+      el("btnSound").textContent = audio.running ? "звук:вкл" : "звук:выкл";
+      el("btnMute").textContent = audio.muted ? "тишина:вкл" : "тишина:выкл";
     }
     function setMuted(m){
       audio.muted = m;
@@ -1088,25 +1560,25 @@
           await wakeLock.release();
           wakeLock = null;
           btn.setAttribute("aria-pressed","false");
-          btn.textContent = "awake";
+          btn.textContent = "бодр";
           return;
         }
         if (!("wakeLock" in navigator)){
-          btn.textContent = "no-wakelock";
-          setTimeout(()=>btn.textContent="awake", 1200);
+          btn.textContent = "нет-лок";
+          setTimeout(()=>btn.textContent="бодр", 1200);
           return;
         }
         wakeLock = await navigator.wakeLock.request("screen");
         btn.setAttribute("aria-pressed","true");
-        btn.textContent = "awake:on";
+        btn.textContent = "бодр:вкл";
         wakeLock.addEventListener("release", () => {
           wakeLock = null;
           btn.setAttribute("aria-pressed","false");
-          btn.textContent = "awake";
+          btn.textContent = "бодр";
         });
       }catch{
-        btn.textContent = "awake:err";
-        setTimeout(()=>btn.textContent="awake", 1200);
+        btn.textContent = "бодр:ошибка";
+        setTimeout(()=>btn.textContent="бодр", 1200);
       }
     }
 
@@ -1116,11 +1588,16 @@
       if (e.key.toLowerCase() === "m") { if (!audio.running) startAudio(); setMuted(!audio.muted); }
       if (e.key.toLowerCase() === "w") toggleWake();
       // quick tabs:
-      if (e.key.toLowerCase() === "1") setTab("remain");
-      if (e.key.toLowerCase() === "2") setTab("lived");
-      if (e.key.toLowerCase() === "3") setTab("bio");
-      if (e.key.toLowerCase() === "4") setTab("today");
-      if (e.key.toLowerCase() === "5") setTab("system");
+      if (!e.altKey && e.key.toLowerCase() === "1") setTab("remain");
+      if (!e.altKey && e.key.toLowerCase() === "2") setTab("lived");
+      if (!e.altKey && e.key.toLowerCase() === "3") setTab("bio");
+      if (!e.altKey && e.key.toLowerCase() === "4") setTab("today");
+      if (!e.altKey && e.key.toLowerCase() === "5") setTab("system");
+      if (!e.altKey && e.key.toLowerCase() === "6") setTab("modes");
+      if (e.altKey && e.key === "1") setMode("hardcore");
+      if (e.altKey && e.key === "2") setMode("family");
+      if (e.altKey && e.key === "3") setMode("anime");
+      if (e.altKey && e.key === "4") setMode("black");
     });
 
     // buttons
@@ -1286,7 +1763,7 @@
     const endDate = computeEnd(birth, life, endRaw);
     const totalMs = Math.max(1, endDate - birthDate);
 
-    el("chipCfg").textContent = endRaw ? `birth=${birth} • end=custom` : `birth=${birth} • +${life}y`;
+    el("chipCfg").textContent = endRaw ? `рождение=${birth} • конец=свой` : `рождение=${birth} • +${life} лет`;
     el("birthLine").textContent = birthDate.toLocaleString("ru-RU");
     el("endLine").textContent = endDate.toLocaleString("ru-RU");
 
@@ -1297,6 +1774,17 @@
 
       const remainMs = clamp(endDate - now, 0, Number.MAX_SAFE_INTEGER);
       const livedMs  = clamp(now - birthDate, 0, totalMs);
+      const remainingDays = remainMs / 86400000;
+      const remainingHours = remainMs / 3600000;
+      const remainingYears = remainingDays / 365.25;
+      const awakeHoursTotal = params.includeSleepInBudgets
+        ? remainingDays * (24 - params.sleepHoursPerDay)
+        : remainingHours;
+      const availableScreenHours = Math.min(awakeHoursTotal, remainingDays * params.screenHoursPerDay);
+      const availableGamingHours = Math.min(awakeHoursTotal, remainingDays * params.gamingHoursPerDay);
+      const animeMinutesTotal = params.includeSleepInBudgets
+        ? Math.min(remainingDays * params.animeMinutesPerDay, awakeHoursTotal * 60)
+        : (remainingDays * params.animeMinutesPerDay);
 
       const fRemain  = clamp(remainMs / totalMs, 0, 1);
       const fLived   = 1 - fRemain;
@@ -1402,32 +1890,32 @@
       const km = (steps * params.stepLenM) / 1000;
 
       el("bBeats").textContent = fmtInt(beats);
-      el("bBeatsS").textContent = `${params.heartBpm} bpm`;
+      el("bBeatsS").textContent = `${fmtInt(params.heartBpm)} уд/мин`;
 
       el("bBreaths").textContent = fmtInt(breaths);
-      el("bBreathsS").textContent = `${params.breathsPerMin}/min`;
+      el("bBreathsS").textContent = `${fmtInt(params.breathsPerMin)}/мин`;
 
       el("bBlinks").textContent = fmtInt(blinks);
 
-      el("bSleepH").textContent = `${fmtInt(sleepHours)} h`;
+      el("bSleepH").textContent = `${fmtInt(sleepHours)} ч`;
       el("bSleepS").textContent = `${fmtInt(sleepDays)} дней`;
 
       el("bO2L").textContent = fmtInt(o2L);
-      el("bO2S").textContent = `${fmtFloat(o2Lpm,2)} L/min`;
+      el("bO2S").textContent = `${fmtFloat(o2Lpm,2)} л/мин`;
 
       el("bO2Kg").textContent = fmtInt(o2kg);
       el("bKcal").textContent = fmtInt(kcal);
-      el("bKcalS").textContent = `${fmtFloat(kcalPerMin,2)} kcal/min`;
+      el("bKcalS").textContent = `${fmtFloat(kcalPerMin,2)} ккал/мин`;
 
       el("bGJ").textContent = fmtFloat(gj, 2);
 
       el("bCO2Kg").textContent = fmtInt(co2kg);
 
       el("bBloodL").textContent = fmtInt(bloodL);
-      el("bBloodS").textContent = `${fmtFloat(params.cardiacOutputLpm,1)} L/min`;
+      el("bBloodS").textContent = `${fmtFloat(params.cardiacOutputLpm,1)} л/мин`;
 
       el("bSteps").textContent = fmtInt(steps);
-      el("bStepsS").textContent = `${fmtInt(params.stepsPerDay)}/day`;
+      el("bStepsS").textContent = `${fmtInt(params.stepsPerDay)}/день`;
 
       el("bKm").textContent = fmtInt(km);
 
@@ -1445,6 +1933,17 @@
 
       // system
       el("nowLine").textContent = now.toLocaleString("ru-RU");
+
+      modesContext = {
+        remainingDays,
+        remainingHours,
+        remainingYears,
+        awakeHoursTotal,
+        availableScreenHours,
+        availableGamingHours,
+        animeMinutesTotal
+      };
+      renderModes(modesContext);
 
       return { fRemain, glow };
     }
@@ -1474,6 +1973,7 @@
     resizeCanvas();
     setSoundButtons();
     setTab("remain");
+    setMode("hardcore");
     setMobilePanel("leak");
     requestAnimationFrame(loop);
 
