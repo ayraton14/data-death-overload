@@ -1,266 +1,1486 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DATA_DEATH_OVERLOAD</title>
-    <style>
-        :root {
-            --red: #ff0000;
-            --dim-red: #330000;
-            --bg: #000;
-            --text: #fff;
-            --border: #222;
-        }
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Time Leak</title>
+  <style>
+    :root{
+      --text:#eaf1ff;
+      --muted:#9fb2d0;
+      --stroke: rgba(255,255,255,.12);
+      --radius:18px;
+      --remain:1; /* 0..1 */
+      --glow:.2;  /* 0..1 */
+      --vh: 1vh;  /* mobile fix */
+    }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      color:var(--text);
+      background:
+        radial-gradient(1100px 700px at 15% 10%, rgba(102,217,255,.16), transparent 60%),
+        radial-gradient(900px 600px at 85% 15%, rgba(178,123,255,.14), transparent 55%),
+        radial-gradient(1000px 800px at 50% 100%, rgba(255,107,139,.08), transparent 55%),
+        linear-gradient(180deg, #05070c, #070a10 35%, #05070c);
+      overflow-x:hidden;
+      overflow-y:auto;
+    }
+    body:before{
+      content:"";
+      position:fixed; inset:0;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+      opacity:.06;
+      pointer-events:none;
+      mix-blend-mode:overlay;
+    }
 
-        * { box-sizing: border-box; }
-        body, html {
-            margin: 0; padding: 0;
-            height: 100vh; width: 100vw;
-            background: var(--bg);
-            color: var(--text);
-            font-family: 'Courier New', monospace;
-            overflow: hidden;
-            font-size: 14px;
-        }
+    .app{
+      min-height: calc(var(--vh) * 100);
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      padding:
+        clamp(10px, 1.4vh, 16px)
+        clamp(10px, 2vw, 16px)
+        calc(clamp(10px, 1.4vh, 16px) + env(safe-area-inset-bottom))
+        clamp(10px, 2vw, 16px);
+      display:flex;
+      flex-direction:column;
+      gap: clamp(8px, 1.1vh, 12px);
+    }
 
-        .layout {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            grid-template-rows: auto auto 1fr auto auto;
-            gap: 10px;
-            height: 100vh;
-            padding: 10px;
-        }
+    header{
+      padding: clamp(10px, 1.4vh, 14px);
+      border-radius: var(--radius);
+      border:1px solid rgba(255,255,255,.13);
+      background:
+        radial-gradient(900px 220px at 20% 0%, rgba(102,217,255,.18), transparent 60%),
+        radial-gradient(700px 220px at 80% 0%, rgba(178,123,255,.14), transparent 58%),
+        linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+      box-shadow: 0 18px 70px rgba(0,0,0,.42);
+      position:relative;
+      overflow:hidden;
+      backdrop-filter: blur(10px);
+    }
+    header:after{
+      content:"";
+      position:absolute; inset:-60px;
+      background: conic-gradient(from 240deg,
+        rgba(102,217,255,.22),
+        rgba(178,123,255,.14),
+        rgba(255,107,139,.12),
+        rgba(102,217,255,.22)
+      );
+      filter: blur(22px);
+      opacity:.26;
+      pointer-events:none;
+    }
+    header > *{ position:relative; z-index:1; }
 
-        /* ОГРОМНЫЙ СЧЕТЧИК МИЛЛИСЕКУНД */
-        .header-main {
-            grid-column: 1 / -1;
-            background: var(--dim-red);
-            padding: 10px;
-            border: 1px solid var(--red);
-            text-align: center;
-        }
-        .total-ms {
-            font-size: 8vh;
-            font-weight: 900;
-            letter-spacing: -2px;
-            text-shadow: 0 0 20px var(--red);
-        }
+    .topRow{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .title{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-width: 220px;
+      flex: 1 1 420px;
+    }
+    .title h1{
+      margin:0;
+      font-size: 13px;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: rgba(234,241,255,.92);
+    }
+    .title .sub{
+      margin:0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height:1.35;
+      max-width: 860px;
+    }
 
-        /* МАТРИЦА ОСТАТКА (Годы, месяцы и т.д.) */
-        .time-matrix {
-            grid-column: 1 / -1;
-            display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            gap: 5px;
-        }
-        .time-unit {
-            border: 1px solid var(--border);
-            padding: 5px;
-            text-align: center;
-        }
-        .unit-val { font-size: 2.5vh; font-weight: bold; color: var(--red); display: block; }
-        .unit-label { font-size: 9px; color: #555; text-transform: uppercase; }
+    .controls{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      align-items:center;
+    }
+    .chip{
+      padding:7px 10px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.20);
+      border-radius: 999px;
+      color: rgba(159,178,208,.95);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 28px rgba(0,0,0,.22);
+      white-space:nowrap;
+    }
+    button{
+      border:1px solid rgba(255,255,255,.13);
+      background: rgba(0,0,0,.22);
+      color: rgba(234,241,255,.92);
+      padding:8px 11px;
+      border-radius: 999px;
+      cursor:pointer;
+      font-size:11px;
+      letter-spacing:.10em;
+      text-transform: uppercase;
+      transition: transform .08s ease, border-color .2s ease, background .2s ease;
+      user-select:none;
+      box-shadow: 0 10px 28px rgba(0,0,0,.22);
+      white-space:nowrap;
+    }
+    button:hover{ border-color: rgba(102,217,255,.40); background: rgba(0,0,0,.28); }
+    button:active{ transform: translateY(1px); }
+    button[aria-pressed="true"]{
+      border-color: rgba(102,217,255,.55);
+      box-shadow: 0 0 0 4px rgba(102,217,255,.10), 0 10px 28px rgba(0,0,0,.22);
+    }
 
-        /* ГРАФИКИ И СЕТКА */
-        .left-panel { grid-column: 1 / 3; display: flex; flex-direction: column; gap: 10px; }
-        .right-panel { grid-column: 3 / 5; display: flex; flex-direction: column; gap: 10px; }
+    .megaWrap{
+      margin-top: clamp(8px, 1.1vh, 12px);
+      border-radius: 16px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      overflow:hidden;
+      position:relative;
+    }
+    .megaWrap:before{
+      content:"";
+      position:absolute; inset:-80px;
+      background:
+        radial-gradient(700px 220px at 20% 40%, rgba(102,217,255,.18), transparent 60%),
+        radial-gradient(700px 220px at 80% 40%, rgba(178,123,255,.14), transparent 58%);
+      filter: blur(16px);
+      opacity: calc(.26 + var(--glow)*.48);
+      pointer-events:none;
+    }
+    .mega{
+      padding: clamp(10px, 1.4vh, 14px);
+      position:relative;
+    }
+    .megaLabel{
+      display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;
+      font-size:10px;
+      letter-spacing:.18em;
+      text-transform: uppercase;
+      color: rgba(159,178,208,.95);
+      user-select:none;
+    }
+    .megaLabel b{ color: rgba(234,241,255,.92); font-weight:700; letter-spacing:.10em; }
+    .megaDigits{
+      margin-top:6px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 950;
+      letter-spacing: -0.02em;
+      line-height: 1.02;
+      font-size: clamp(26px, 5.3vw, 74px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      position:relative;
+      color: rgba(234,241,255,.96);
+      text-shadow: 0 0 24px rgba(102,217,255,.22), 0 0 48px rgba(178,123,255,.12);
+    }
+    .megaDigits[data-text]:before,
+    .megaDigits[data-text]:after{
+      content: attr(data-text);
+      position:absolute;
+      left:0; top:0;
+      width:100%;
+      white-space: nowrap;
+      overflow:hidden;
+      text-overflow: ellipsis;
+      opacity: calc(.10 + var(--glow)*.25);
+      pointer-events:none;
+      mix-blend-mode: screen;
+    }
+    .megaDigits[data-text]:before{
+      transform: translateX(-1px);
+      color: rgba(102,217,255,.65);
+      clip-path: inset(0 0 55% 0);
+      filter: blur(.2px);
+      animation: glitch1 calc(1.9s - var(--glow)*.9s) infinite steps(2,end);
+    }
+    .megaDigits[data-text]:after{
+      transform: translateX(1px);
+      color: rgba(255,107,139,.55);
+      clip-path: inset(48% 0 0 0);
+      filter: blur(.25px);
+      animation: glitch2 calc(2.4s - var(--glow)*1.0s) infinite steps(2,end);
+    }
+    @keyframes glitch1{ 0%,100%{transform:translateX(-1px)} 50%{transform:translateX(-3px)} }
+    @keyframes glitch2{ 0%,100%{transform:translateX(1px)} 50%{transform:translateX(4px)} }
 
-        .card {
-            border: 1px solid var(--border);
-            padding: 8px;
-            background: rgba(10,10,10,0.8);
-        }
-        .card-header { font-size: 10px; color: #666; margin-bottom: 5px; border-bottom: 1px solid #222; }
+    .megaSub{
+      margin-top:6px;
+      color: rgba(159,178,208,.92);
+      font-size: 11px;
+      line-height: 1.35;
+      white-space: nowrap;
+      overflow:hidden;
+      text-overflow: ellipsis;
+    }
 
-        /* Сетка недель (сжатая) */
-        .mini-grid {
-            display: grid;
-            grid-template-columns: repeat(52, 1fr);
-            gap: 1px;
-            height: 12vh;
-        }
-        .w-box { background: #111; height: 100%; }
-        .w-box.lived { background: #222; }
-        .w-box.current { background: var(--red); animation: pulse 1s infinite; }
+    main{
+      display:grid;
+      grid-template-columns: 1.18fr .82fr;
+      gap: clamp(8px, 1.1vh, 12px);
+      align-items: stretch;
+    }
+    .card{
+      border-radius: var(--radius);
+      border:1px solid rgba(255,255,255,.12);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      box-shadow: 0 18px 70px rgba(0,0,0,.36);
+      overflow:hidden;
+      backdrop-filter: blur(10px);
+      display:flex;
+      flex-direction:column;
+      min-width:0;
+    }
+    .inner{
+      padding: clamp(10px, 1.3vh, 14px);
+      display:flex;
+      flex-direction:column;
+      gap: clamp(8px, 1.0vh, 10px);
+      min-height: 0;
+    }
+    .label{
+      font-size:11px;
+      color: var(--muted);
+      letter-spacing:.14em;
+      text-transform: uppercase;
+      user-select:none;
+    }
+    .big{
+      font-size: clamp(20px, 2.8vw, 34px);
+      font-weight: 860;
+      letter-spacing: .02em;
+      font-variant-numeric: tabular-nums;
+      line-height:1.05;
+      color: rgba(234,241,255,.95);
+    }
+    .big .ms{
+      font-size: 0.55em;
+      color: rgba(102,217,255,.9);
+      font-weight:760;
+    }
+    .meta{
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .meta b{ color: rgba(234,241,255,.92); }
 
-        /* Биометрические прогресс-бары */
-        .bio-bar-row { margin-bottom: 8px; }
-        .bio-label { font-size: 10px; display: flex; justify-content: space-between; margin-bottom: 2px; }
-        .bar-bg { background: #111; height: 6px; width: 100%; }
-        .bar-fill { height: 100%; background: var(--red); box-shadow: 0 0 5px var(--red); }
+    .leakBox{
+      height: clamp(180px, 26vh, 320px);
+      border-radius: 18px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.14);
+      position:relative;
+      overflow:hidden;
+    }
+    .leakBox:after{
+      content:"";
+      position:absolute; inset:0;
+      background:
+        radial-gradient(700px 220px at calc(var(--remain)*100%) 35%, rgba(102,217,255,.10), transparent 55%),
+        radial-gradient(700px 220px at calc(var(--remain)*100%) 65%, rgba(255,107,139,.07), transparent 60%);
+      opacity: calc(.22 + var(--glow)*.32);
+      pointer-events:none;
+    }
+    canvas{ display:block; }
 
-        /* Цитаты и логи */
-        .logs { font-size: 10px; color: #444; height: 60px; overflow: hidden; }
-        .quote { color: #ff5555; font-style: italic; border-left: 2px solid var(--red); padding-left: 10px; font-size: 1.5vh; }
+    .miniRow{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    .mini{
+      padding:10px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.14);
+      min-width:0;
+    }
+    .mini .k{
+      font-size:10px;
+      color: var(--muted);
+      letter-spacing:.14em;
+      text-transform: uppercase;
+    }
+    .mini .v{
+      margin-top:6px;
+      font-size: clamp(13px, 1.9vw, 16px);
+      font-weight:840;
+      font-variant-numeric: tabular-nums;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow: ellipsis;
+    }
 
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.2; } 100% { opacity: 1; } }
+    .tabs{ display:flex; gap:8px; flex-wrap:wrap; }
+    .tabBtn{
+      padding:7px 10px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      color: rgba(234,241,255,.92);
+      cursor:pointer;
+      font-size:11px;
+      letter-spacing:.10em;
+      text-transform: uppercase;
+      user-select:none;
+      white-space:nowrap;
+      transition: border-color .2s ease, transform .08s ease, background .2s ease;
+    }
+    .tabBtn:hover{ border-color: rgba(102,217,255,.35); }
+    .tabBtn:active{ transform: translateY(1px); }
+    .tabBtn.active{
+      border-color: rgba(102,217,255,.55);
+      box-shadow: 0 0 0 4px rgba(102,217,255,.10);
+    }
 
-    </style>
+    .tabBody{
+      border-radius: 16px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.12);
+      padding: 10px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      min-height: 0;
+    }
+    .tabPanel{ display:none; }
+    .tabPanel.active{ display:flex; flex-direction:column; gap:10px; }
+
+    .chipsGrid{
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap:8px;
+      min-width:0;
+    }
+    .chipCard{
+      padding:10px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.14);
+      min-width:0;
+    }
+    .chipCard .k{
+      font-size:10px;
+      color: var(--muted);
+      letter-spacing:.14em;
+      text-transform: uppercase;
+    }
+    .chipCard .v{
+      margin-top:6px;
+      font-variant-numeric: tabular-nums;
+      font-weight:860;
+      font-size: clamp(12px, 2.0vw, 16px);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow: ellipsis;
+    }
+    .chipCard .s{
+      margin-top:4px;
+      font-size:11px;
+      color: rgba(159,178,208,.9);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow: ellipsis;
+    }
+
+    .lineList{ display:flex; flex-direction:column; gap:8px; }
+    .line{
+      display:flex; justify-content:space-between; gap:10px;
+      padding:10px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.14);
+      font-variant-numeric: tabular-nums;
+      min-width:0;
+    }
+    .line .k{ color: var(--muted); font-size: 11px; white-space:nowrap; }
+    .line .v{
+      font-weight:820; font-size: 12px;
+      white-space:nowrap; overflow:hidden; text-overflow: ellipsis;
+      text-align:right; min-width: 0;
+    }
+
+    .hint{
+      font-size:11px;
+      color: rgba(159,178,208,.92);
+      line-height:1.35;
+      user-select:none;
+    }
+    .kbd{
+      display:inline-block;
+      padding:2px 7px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.20);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Mobile: вместо 2 карточек столбиком — переключатель */
+    .mobileNav{ display:none; }
+    @media (max-width: 940px){
+      main{ grid-template-columns: 1fr; }
+      .mobileNav{
+        display:flex;
+        gap:8px;
+        padding: 8px;
+        border-radius: 16px;
+        border:1px solid rgba(255,255,255,.10);
+        background: rgba(0,0,0,.14);
+      }
+      .mobileNav .tabBtn{ flex:1 1 0; text-align:center; }
+
+      #panelLeak, #panelStats{ display:none; }
+      #panelLeak.active, #panelStats.active{ display:flex; }
+    }
+    @media (max-width: 520px){
+      .title .sub{ display:none; }
+      .megaSub{ display:none; }
+      .chipsGrid{ grid-template-columns: repeat(2, 1fr); }
+      .megaDigits{
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        word-break: break-all;
+        text-align:center;
+        font-size: clamp(24px, 9.5vw, 44px);
+      }
+      .megaDigits[data-text]:before,
+      .megaDigits[data-text]:after{
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        word-break: break-all;
+      }
+    }
+
+    /* Modal (PARAMS) */
+    .modal{
+      position:fixed; inset:0;
+      background: rgba(0,0,0,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding: 14px;
+      z-index: 50;
+    }
+    .modal.open{ display:flex; }
+    .modalCard{
+      width: min(760px, 100%);
+      border-radius: 18px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(7,10,16,.86);
+      box-shadow: 0 30px 120px rgba(0,0,0,.6);
+      backdrop-filter: blur(14px);
+      overflow:hidden;
+    }
+    .modalHead{
+      padding: 12px 14px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      border-bottom:1px solid rgba(255,255,255,.10);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+    }
+    .modalHead .t{
+      font-size: 11px;
+      letter-spacing:.18em;
+      text-transform: uppercase;
+      color: rgba(159,178,208,.95);
+      user-select:none;
+    }
+    .modalBody{
+      padding: 14px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 720px){
+      .modalBody{ grid-template-columns: 1fr; }
+    }
+    .field{
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.22);
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .field .k{
+      font-size:10px;
+      color: rgba(159,178,208,.95);
+      letter-spacing:.14em;
+      text-transform: uppercase;
+      user-select:none;
+    }
+    .field .row{
+      margin-top:8px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .field input[type="range"]{ width: 100%; }
+    .field input[type="number"]{
+      width: 110px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.30);
+      color: rgba(234,241,255,.92);
+      font-variant-numeric: tabular-nums;
+      outline:none;
+    }
+    .field .v{
+      margin-left:auto;
+      font-variant-numeric: tabular-nums;
+      font-weight:800;
+      color: rgba(234,241,255,.92);
+      white-space:nowrap;
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .megaDigits[data-text]:before,
+      .megaDigits[data-text]:after{ animation:none !important; }
+    }
+  </style>
 </head>
 <body>
-
-<div class="layout">
-    <!-- Секция 1: Абсолютный остаток в мс -->
-    <div class="header-main">
-        <div class="unit-label" style="color: var(--red)">Абсолютный системный остаток (MS)</div>
-        <div class="total-ms" id="total-ms">00 000 000 000</div>
-    </div>
-
-    <!-- Секция 2: Подробная матрица времени -->
-    <div class="time-matrix">
-        <div class="time-unit"><span class="unit-val" id="y-val">0</span><span class="unit-label">Лет</span></div>
-        <div class="time-unit"><span class="unit-val" id="m-val">0</span><span class="unit-label">Месяцев</span></div>
-        <div class="time-unit"><span class="unit-val" id="w-val">0</span><span class="unit-label">Недель</span></div>
-        <div class="time-unit"><span class="unit-val" id="d-val">0</span><span class="unit-label">Дней</span></div>
-        <div class="time-unit"><span class="unit-val" id="h-val">0</span><span class="unit-label">Часов</span></div>
-        <div class="time-unit"><span class="unit-val" id="min-val">0</span><span class="unit-label">Минут</span></div>
-        <div class="time-unit"><span class="unit-val" id="sec-val">0</span><span class="unit-label">Секунд</span></div>
-        <div class="time-unit"><span class="unit-val" id="ms-val">000</span><span class="unit-label">Миллисек</span></div>
-    </div>
-
-    <!-- Секция 3: Визуальная сетка недель -->
-    <div class="left-panel">
-        <div class="card">
-            <div class="card-header">LIFE_GRID: 3536 WEEKS (1995-2063)</div>
-            <div class="mini-grid" id="week-grid"></div>
+  <div class="app">
+    <header>
+      <div class="topRow">
+        <div class="title">
+          <h1>TIME LEAK</h1>
+          <p class="sub">
+            Настройка: <code>?birth=1995-03-14&life=68</code> или <code>?end=2063-03-14T00:00:00</code>.
+            Клавиши: <b>F</b> full • <b>M</b> mute • <b>W</b> awake
+          </p>
         </div>
-        <div class="card">
-            <div class="card-header">BIOLOGICAL_RESOURCES_LEFT</div>
-            <div class="bio-bar-row">
-                <div class="bio-label"><span>Сердцебиение (остаток)</span><span id="heart-count">0</span></div>
-                <div class="bar-bg"><div class="bar-fill" id="heart-bar"></div></div>
+
+        <div class="controls">
+          <span class="chip" id="chipCfg">…</span>
+          <button id="btnParams" title="Параметры расчётов">params</button>
+          <button id="btnSound" aria-pressed="false" title="Звук (нужен клик)">sound</button>
+          <button id="btnMute" aria-pressed="true" title="Mute / Unmute">mute</button>
+          <button id="btnFullscreen" aria-pressed="false" title="Fullscreen (F)">full</button>
+          <button id="btnWake" aria-pressed="false" title="Always-on / Wake Lock (W)">awake</button>
+        </div>
+      </div>
+
+      <div class="megaWrap">
+        <div class="mega">
+          <div class="megaLabel">
+            <span>Осталось <b>миллисекунд</b> (абсолютно)</span>
+            <span id="megaRight">…</span>
+          </div>
+          <div class="megaDigits" id="megaMillis" data-text="…">…</div>
+          <div class="megaSub" id="megaSub">…</div>
+        </div>
+      </div>
+    </header>
+
+    <div class="mobileNav" aria-label="Mobile panels">
+      <div class="tabBtn active" data-mtab="leak">leak</div>
+      <div class="tabBtn" data-mtab="stats">stats</div>
+    </div>
+
+    <main>
+      <!-- LEAK -->
+      <section class="card active" id="panelLeak">
+        <div class="inner">
+          <div class="label">Осталось (календарно)</div>
+          <div class="big" id="countBig">…</div>
+          <div class="meta" id="metaLine">…</div>
+
+          <div class="leakBox" id="leakBox">
+            <canvas id="leakCanvas"></canvas>
+          </div>
+
+          <div class="miniRow">
+            <div class="mini">
+              <div class="k">Остаток</div>
+              <div class="v" id="pctRemain">…</div>
             </div>
-            <div class="bio-bar-row">
-                <div class="bio-label"><span>Вдохи (остаток)</span><span id="breath-count">0</span></div>
-                <div class="bar-bg"><div class="bar-fill" id="breath-bar"></div></div>
+            <div class="mini">
+              <div class="k">Прожито</div>
+              <div class="v" id="pctLived">…</div>
             </div>
-            <div class="bio-bar-row">
-                <div class="bio-label"><span>Часы сна (остаток)</span><span id="sleep-count">0</span></div>
-                <div class="bar-bg"><div class="bar-fill" id="sleep-bar"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STATS -->
+      <section class="card active" id="panelStats">
+        <div class="inner">
+          <div class="tabs" role="tablist" aria-label="Stats tabs">
+            <div class="tabBtn active" role="tab" tabindex="0" data-tab="remain">remain</div>
+            <div class="tabBtn" role="tab" tabindex="0" data-tab="lived">lived</div>
+            <div class="tabBtn" role="tab" tabindex="0" data-tab="bio">bio</div>
+            <div class="tabBtn" role="tab" tabindex="0" data-tab="today">today</div>
+            <div class="tabBtn" role="tab" tabindex="0" data-tab="system">system</div>
+          </div>
+
+          <div class="tabBody">
+            <!-- REMAIN -->
+            <div class="tabPanel active" id="tab-remain">
+              <div class="label">Осталось — абсолютные единицы</div>
+              <div class="chipsGrid">
+                <div class="chipCard"><div class="k">weeks</div><div class="v" id="rWeeks">…</div></div>
+                <div class="chipCard"><div class="k">days</div><div class="v" id="rDays">…</div></div>
+                <div class="chipCard"><div class="k">hours</div><div class="v" id="rHours">…</div></div>
+                <div class="chipCard"><div class="k">minutes</div><div class="v" id="rMinutes">…</div></div>
+                <div class="chipCard"><div class="k">seconds</div><div class="v" id="rSeconds">…</div></div>
+                <div class="chipCard"><div class="k">millis</div><div class="v" id="rMillis">…</div></div>
+              </div>
+              <div class="hint">1 день = 24ч = 1440 мин = 86400 сек = 86400000 мс.</div>
             </div>
-        </div>
-    </div>
 
-    <!-- Секция 4: Дополнительные счетчики -->
-    <div class="right-panel">
-        <div class="card">
-            <div class="card-header">CONSUMPTION_STATISTICS</div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div>
-                    <div class="unit-label">Завтраков осталось</div>
-                    <div class="unit-val" id="food-val" style="font-size: 2vh;">0</div>
-                </div>
-                <div>
-                    <div class="unit-label">Остаток 'Лета'</div>
-                    <div class="unit-val" id="summers-val" style="font-size: 2vh;">0</div>
-                </div>
+            <!-- LIVED -->
+            <div class="tabPanel" id="tab-lived">
+              <div class="label">Прожито — абсолютные единицы</div>
+              <div class="chipsGrid">
+                <div class="chipCard"><div class="k">years</div><div class="v" id="lYears">…</div><div class="s" id="lYearsS">…</div></div>
+                <div class="chipCard"><div class="k">months</div><div class="v" id="lMonths">…</div><div class="s" id="lMonthsS">…</div></div>
+                <div class="chipCard"><div class="k">weeks</div><div class="v" id="lWeeks">…</div></div>
+                <div class="chipCard"><div class="k">days</div><div class="v" id="lDays">…</div></div>
+                <div class="chipCard"><div class="k">hours</div><div class="v" id="lHours">…</div></div>
+                <div class="chipCard"><div class="k">minutes</div><div class="v" id="lMinutes">…</div></div>
+                <div class="chipCard"><div class="k">seconds</div><div class="v" id="lSeconds">…</div></div>
+                <div class="chipCard"><div class="k">millis</div><div class="v" id="lMillis">…</div></div>
+                <div class="chipCard"><div class="k">sunrises</div><div class="v" id="lSunrises">…</div><div class="s">≈ дней</div></div>
+                <div class="chipCard"><div class="k">new moons</div><div class="v" id="lMoons">…</div><div class="s">≈ 29.53 дня</div></div>
+                <div class="chipCard"><div class="k">seasons</div><div class="v" id="lSeasons">…</div><div class="s">≈ 91.31 дня</div></div>
+                <div class="chipCard"><div class="k">movies (2h)</div><div class="v" id="lMovies">…</div><div class="s">если без сна</div></div>
+              </div>
+              <div class="hint">Где нужно — это оценки. Точные календарные “лет/мес” считаются отдельно.</div>
             </div>
+
+            <!-- BIO -->
+            <div class="tabPanel" id="tab-bio">
+              <div class="label">Био/энергия — оценки</div>
+              <div class="chipsGrid">
+                <div class="chipCard"><div class="k">heartbeats</div><div class="v" id="bBeats">…</div><div class="s" id="bBeatsS">…</div></div>
+                <div class="chipCard"><div class="k">breaths</div><div class="v" id="bBreaths">…</div><div class="s" id="bBreathsS">…</div></div>
+                <div class="chipCard"><div class="k">blinks</div><div class="v" id="bBlinks">…</div><div class="s">≈ 15/мин</div></div>
+                <div class="chipCard"><div class="k">sleep</div><div class="v" id="bSleepH">…</div><div class="s" id="bSleepS">…</div></div>
+
+                <div class="chipCard"><div class="k">oxygen (L)</div><div class="v" id="bO2L">…</div><div class="s" id="bO2S">…</div></div>
+                <div class="chipCard"><div class="k">oxygen (kg)</div><div class="v" id="bO2Kg">…</div><div class="s">через MET</div></div>
+                <div class="chipCard"><div class="k">calories (kcal)</div><div class="v" id="bKcal">…</div><div class="s" id="bKcalS">…</div></div>
+                <div class="chipCard"><div class="k">heat (GJ)</div><div class="v" id="bGJ">…</div><div class="s">1 kcal = 4184 J</div></div>
+
+                <div class="chipCard"><div class="k">CO₂ (kg)</div><div class="v" id="bCO2Kg">…</div><div class="s">≈ RQ</div></div>
+                <div class="chipCard"><div class="k">blood pumped (L)</div><div class="v" id="bBloodL">…</div><div class="s" id="bBloodS">…</div></div>
+                <div class="chipCard"><div class="k">steps</div><div class="v" id="bSteps">…</div><div class="s" id="bStepsS">…</div></div>
+                <div class="chipCard"><div class="k">distance (km)</div><div class="v" id="bKm">…</div><div class="s">шаг</div></div>
+              </div>
+              <div class="hint">
+                Всё в этом табе — оценочно. Нажми <span class="kbd">params</span>, чтобы подкрутить вес/активность/пульс/дыхание/сон/шаги.
+              </div>
+            </div>
+
+            <!-- TODAY -->
+            <div class="tabPanel" id="tab-today">
+              <div class="label">Сегодня осталось</div>
+              <div class="big" id="todayBig">…</div>
+              <div class="meta" id="todayMeta">…</div>
+              <div class="hint">До ближайшей полуночи по времени устройства.</div>
+            </div>
+
+            <!-- SYSTEM -->
+            <div class="tabPanel" id="tab-system">
+              <div class="label">Системные строки</div>
+              <div class="lineList">
+                <div class="line"><div class="k">now</div><div class="v" id="nowLine">…</div></div>
+                <div class="line"><div class="k">birth</div><div class="v" id="birthLine">…</div></div>
+                <div class="line"><div class="k">end</div><div class="v" id="endLine">…</div></div>
+              </div>
+              <div class="hint">
+                <span class="kbd">F</span> fullscreen • <span class="kbd">M</span> mute • <span class="kbd">W</span> always-on
+              </div>
+            </div>
+
+          </div>
         </div>
-        <div class="card" style="flex-grow: 1;">
-            <div class="card-header">SYSTEM_DECAY_LOG</div>
-            <div class="logs" id="logs"></div>
-            <div class="quote" id="quote">Инициализация энтропии...</div>
+      </section>
+    </main>
+  </div>
+
+  <!-- PARAMS MODAL -->
+  <div class="modal" id="modal">
+    <div class="modalCard" role="dialog" aria-modal="true" aria-label="Parameters">
+      <div class="modalHead">
+        <div class="t">PARAMS — assumptions for estimates</div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button id="btnReset" title="Сбросить к дефолту">reset</button>
+          <button id="btnClose" title="Закрыть">close</button>
         </div>
+      </div>
+      <div class="modalBody">
+        <div class="field">
+          <div class="k">weight (kg)</div>
+          <div class="row">
+            <input id="wRange" type="range" min="45" max="140" step="1">
+            <input id="wNum" type="number" min="30" max="250" step="1">
+            <div class="v" id="wOut">…</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="k">avg activity (MET)</div>
+          <div class="row">
+            <input id="metRange" type="range" min="1.0" max="3.0" step="0.05">
+            <input id="metNum" type="number" min="0.8" max="6.0" step="0.05">
+            <div class="v" id="metOut">…</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="k">heart rate (bpm)</div>
+          <div class="row">
+            <input id="hrRange" type="range" min="45" max="120" step="1">
+            <input id="hrNum" type="number" min="30" max="200" step="1">
+            <div class="v" id="hrOut">…</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="k">breaths per minute</div>
+          <div class="row">
+            <input id="brRange" type="range" min="8" max="24" step="1">
+            <input id="brNum" type="number" min="6" max="40" step="1">
+            <div class="v" id="brOut">…</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="k">sleep (hours/day)</div>
+          <div class="row">
+            <input id="slRange" type="range" min="4.0" max="10.0" step="0.1">
+            <input id="slNum" type="number" min="0" max="16" step="0.1">
+            <div class="v" id="slOut">…</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="k">steps per day</div>
+          <div class="row">
+            <input id="stRange" type="range" min="500" max="20000" step="100">
+            <input id="stNum" type="number" min="0" max="60000" step="100">
+            <div class="v" id="stOut">…</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="k">step length (m)</div>
+          <div class="row">
+            <input id="lenRange" type="range" min="0.55" max="0.95" step="0.01">
+            <input id="lenNum" type="number" min="0.3" max="1.5" step="0.01">
+            <div class="v" id="lenOut">…</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="k">cardiac output (L/min)</div>
+          <div class="row">
+            <input id="coRange" type="range" min="3.0" max="9.0" step="0.1">
+            <input id="coNum" type="number" min="1" max="20" step="0.1">
+            <div class="v" id="coOut">…</div>
+          </div>
+        </div>
+
+        <div class="field" style="grid-column: 1 / -1;">
+          <div class="k">note</div>
+          <div class="hint">
+            MET — грубая “средняя активность за жизнь”. 1.0 ≈ в основном сидя, 1.4–1.8 ≈ обычная жизнь, 2.2+ ≈ очень активная.
+            Все расчёты — оценки, не медицина.
+          </div>
+        </div>
+      </div>
     </div>
+  </div>
 
-    <!-- Секция 5: Нижняя панель прогресса -->
-    <div style="grid-column: 1 / -1;" class="card">
-        <div class="bio-label">
-            <span>ОБЩИЙ ПРОГРЕСС ИЗНОСА ОРГАНИЗМА</span>
-            <span id="global-percent">0.000000%</span>
-        </div>
-        <div class="bar-bg" style="height: 12px; margin-top: 5px;">
-            <div class="bar-fill" id="global-bar" style="width: 0%;"></div>
-        </div>
-    </div>
-</div>
+  <script>
+    // ===== viewport vh fix =====
+    function setVH(){
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty("--vh", `${vh}px`);
+    }
+    window.addEventListener("resize", setVH, { passive:true });
+    window.addEventListener("orientationchange", setVH, { passive:true });
+    setVH();
 
-<script>
-    const birth = new Date('1995-03-14');
-    const death = new Date('2063-03-14');
-    const totalLifeMs = death - birth;
+    // ===== helpers/config =====
+    const DEFAULT_BIRTH = "1995-03-14";
+    const DEFAULT_LIFE_YEARS = 68;
 
-    // Генерируем сетку
-    const grid = document.getElementById('week-grid');
-    const weeksLived = Math.floor((new Date() - birth) / (1000 * 60 * 60 * 24 * 7));
-    for(let i=0; i<68*52; i++) {
-        const d = document.createElement('div');
-        d.className = 'w-box' + (i < weeksLived ? ' lived' : '') + (i === weeksLived ? ' current' : '');
-        grid.appendChild(d);
+    const el = (id) => document.getElementById(id);
+    const fmtInt = (n) => new Intl.NumberFormat("ru-RU").format(Math.max(0, Math.trunc(n)));
+    const fmtFloat = (n, d=2) => new Intl.NumberFormat("ru-RU", { maximumFractionDigits:d }).format(n);
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
+
+    function parseQuery(){
+      const p = new URLSearchParams(location.search);
+      return {
+        birth: p.get("birth") || DEFAULT_BIRTH,
+        life: Number(p.get("life") || DEFAULT_LIFE_YEARS),
+        endRaw: p.get("end")
+      };
+    }
+    function dateFromYMD(ymd){
+      const [y,m,d] = ymd.split("-").map(Number);
+      return new Date(y, m-1, d, 0,0,0,0);
+    }
+    function computeEnd(birthStr, lifeYears, endRaw){
+      if (endRaw) return new Date(endRaw);
+      const b = dateFromYMD(birthStr);
+      const e = new Date(b);
+      e.setFullYear(e.getFullYear() + lifeYears);
+      return e;
     }
 
-    const quotes = [
-        "Твое время просачивается сквозь пальцы.",
-        "Каждая миллисекунда — это минус одна возможность.",
-        "Ты уже никогда не будешь моложе, чем в эту секунду.",
-        "Смерть — единственный честный бухгалтер.",
-        "Пока ты смотришь на экран, жизнь уходит в небытие.",
-        "Хватит анализировать остаток. Начни его тратить."
-    ];
+    // calendar-aware diff for "years/months" style
+    function calendarDiffBetween(start, end){
+      if (end <= start) return {done:true, years:0, months:0, days:0, hours:0, minutes:0, seconds:0, millis:0};
 
-    function update() {
-        const now = new Date();
-        const diff = death - now;
-        if (diff <= 0) return;
+      let years = end.getFullYear() - start.getFullYear();
+      let cursor = new Date(start);
+      cursor.setFullYear(cursor.getFullYear() + years);
+      if (cursor > end){
+        years--;
+        cursor = new Date(start);
+        cursor.setFullYear(cursor.getFullYear() + years);
+      }
 
-        // Расчеты времени
-        const ms = Math.floor(diff % 1000);
-        const sec = Math.floor((diff / 1000) % 60);
-        const min = Math.floor((diff / (1000 * 60)) % 60);
-        const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const weeks = Math.floor(days / 7);
-        const months = Math.floor(days / 30.4375);
-        const years = Math.floor(days / 365.25);
+      let months = 0;
+      while (months < 12){
+        const next = new Date(cursor);
+        next.setMonth(next.getMonth() + 1);
+        if (next <= end){ cursor = next; months++; } else break;
+      }
 
-        // Обновление цифр
-        document.getElementById('total-ms').innerText = diff.toLocaleString().replace(/,/g, ' ');
-        document.getElementById('y-val').innerText = years;
-        document.getElementById('m-val').innerText = months;
-        document.getElementById('w-val').innerText = weeks;
-        document.getElementById('d-val').innerText = days;
-        document.getElementById('h-val').innerText = hours;
-        document.getElementById('min-val').innerText = min;
-        document.getElementById('sec-val').innerText = sec;
-        document.getElementById('ms-val').innerText = ms.toString().padStart(3, '0');
+      let rem = end - cursor;
+      const dayMs = 86400000, hourMs = 3600000, minMs = 60000, secMs = 1000;
+      const days = Math.floor(rem / dayMs); rem -= days * dayMs;
+      const hours = Math.floor(rem / hourMs); rem -= hours * hourMs;
+      const minutes = Math.floor(rem / minMs); rem -= minutes * minMs;
+      const seconds = Math.floor(rem / secMs); rem -= seconds * secMs;
 
-        // Биометрия
-        const totalSecondsLeft = diff / 1000;
-        document.getElementById('heart-count').innerText = (totalSecondsLeft * 1.1).toLocaleString(undefined, {maximumFractionDigits:0});
-        document.getElementById('breath-count').innerText = (totalSecondsLeft * 0.2).toLocaleString(undefined, {maximumFractionDigits:0});
-        document.getElementById('sleep-count').innerText = (days * 8).toLocaleString();
-        document.getElementById('food-val').innerText = (days * 3).toLocaleString();
-        document.getElementById('summers-val').innerText = years;
+      return {done:false, years, months, days, hours, minutes, seconds, millis: rem};
+    }
 
-        // Прогресс-бары
-        const percentLived = ((now - birth) / totalLifeMs) * 100;
-        document.getElementById('global-bar').style.width = percentLived + '%';
-        document.getElementById('global-percent').innerText = percentLived.toFixed(6) + '%';
-        
-        // Ресурсные бары (обратные)
-        document.getElementById('heart-bar').style.width = (100 - percentLived) + '%';
-        document.getElementById('breath-bar').style.width = (100 - percentLived) + '%';
-        document.getElementById('sleep-bar').style.width = (100 - percentLived) + '%';
+    // ===== mobile top-level LEAK/STATS =====
+    const mobileBtns = Array.from(document.querySelectorAll("[data-mtab]"));
+    function isMobileMode(){ return window.matchMedia("(max-width: 940px)").matches; }
+    function setMobilePanel(which){
+      const leak = el("panelLeak");
+      const stats = el("panelStats");
 
-        // Логи
-        if(Math.random() > 0.98) {
-            const l = document.getElementById('logs');
-            const entry = document.createElement('div');
-            entry.innerText = `> EXECUTING_LIFE_DECAY: -${(Math.random()*100).toFixed(0)}ms [OK]`;
-            l.prepend(entry);
-            if(l.children.length > 5) l.lastChild.remove();
+      if (!isMobileMode()){
+        leak.classList.add("active");
+        stats.classList.add("active");
+      } else {
+        leak.classList.toggle("active", which === "leak");
+        stats.classList.toggle("active", which === "stats");
+      }
+      mobileBtns.forEach(b => b.classList.toggle("active", b.dataset.mtab === which));
+      setTimeout(resizeCanvas, 0);
+    }
+    mobileBtns.forEach(b => b.addEventListener("click", () => setMobilePanel(b.dataset.mtab)));
+
+    // ===== right tabs =====
+    const tabBtns = Array.from(document.querySelectorAll("#panelStats .tabBtn[data-tab]"));
+    function setTab(name){
+      tabBtns.forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+      ["remain","lived","bio","today","system"].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle("active", t === name);
+      });
+    }
+    tabBtns.forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
+
+    // ===== PARAMS storage =====
+    const DEFAULT_PARAMS = {
+      weightKg: 82,
+      met: 1.45,
+      heartBpm: 72,
+      breathsPerMin: 14,
+      sleepHoursPerDay: 7.2,
+      stepsPerDay: 6500,
+      stepLenM: 0.75,
+      cardiacOutputLpm: 5.0,
+      rq: 0.85 // respiratory quotient for CO2 estimate
+    };
+    const LS_KEY = "timeleak_params_v1";
+    function loadParams(){
+      try{
+        const raw = localStorage.getItem(LS_KEY);
+        if (!raw) return { ...DEFAULT_PARAMS };
+        const obj = JSON.parse(raw);
+        return { ...DEFAULT_PARAMS, ...obj };
+      }catch{
+        return { ...DEFAULT_PARAMS };
+      }
+    }
+    function saveParams(p){
+      try{ localStorage.setItem(LS_KEY, JSON.stringify(p)); }catch{}
+    }
+    let params = loadParams();
+
+    // ===== PARAMS modal wiring =====
+    const modal = el("modal");
+    function openModal(){ modal.classList.add("open"); }
+    function closeModal(){ modal.classList.remove("open"); }
+
+    function bindRange(rangeId, numId, outId, key, fmt=(v)=>v){
+      const r = el(rangeId), n = el(numId), o = el(outId);
+      const setUI = (v)=>{
+        const vv = typeof v === "number" ? v : Number(v);
+        r.value = vv; n.value = vv;
+        o.textContent = fmt(vv);
+      };
+      const apply = (v)=>{
+        params[key] = Number(v);
+        setUI(params[key]);
+        saveParams(params);
+      };
+      r.addEventListener("input", (e)=>apply(e.target.value));
+      n.addEventListener("input", (e)=>apply(e.target.value));
+      setUI(params[key]);
+    }
+
+    el("btnParams").addEventListener("click", () => { openModal(); });
+    el("btnClose").addEventListener("click", closeModal);
+    modal.addEventListener("click", (e)=>{ if (e.target === modal) closeModal(); });
+    document.addEventListener("keydown", (e)=>{ if (e.key === "Escape") closeModal(); });
+
+    el("btnReset").addEventListener("click", ()=>{
+      params = { ...DEFAULT_PARAMS };
+      saveParams(params);
+      initParamsUI();
+    });
+
+    function initParamsUI(){
+      bindRange("wRange","wNum","wOut","weightKg",(v)=>`${v} kg`);
+      bindRange("metRange","metNum","metOut","met",(v)=>fmtFloat(v,2));
+      bindRange("hrRange","hrNum","hrOut","heartBpm",(v)=>`${v} bpm`);
+      bindRange("brRange","brNum","brOut","breathsPerMin",(v)=>`${v}/min`);
+      bindRange("slRange","slNum","slOut","sleepHoursPerDay",(v)=>`${fmtFloat(v,1)} h`);
+      bindRange("stRange","stNum","stOut","stepsPerDay",(v)=>fmtInt(v));
+      bindRange("lenRange","lenNum","lenOut","stepLenM",(v)=>`${fmtFloat(v,2)} m`);
+      bindRange("coRange","coNum","coOut","cardiacOutputLpm",(v)=>`${fmtFloat(v,1)} L/min`);
+    }
+    initParamsUI();
+
+    // ===== audio (tick + sand) =====
+    const audio = { ctx:null, master:null, noiseSrc:null, noiseGain:null, tickGain:null, running:false, muted:true, tickTimer:null };
+
+    function createNoiseBuffer(ctx, seconds=2){
+      const sr = ctx.sampleRate, len = sr * seconds;
+      const buf = ctx.createBuffer(1, len, sr);
+      const data = buf.getChannelData(0);
+      let last = 0;
+      for (let i=0;i<len;i++){
+        const r = (Math.random()*2-1)*0.35;
+        last = last*0.985 + r*0.015;
+        data[i] = last;
+      }
+      return buf;
+    }
+    function setSoundButtons(){
+      el("btnSound").setAttribute("aria-pressed", audio.running ? "true" : "false");
+      el("btnMute").setAttribute("aria-pressed", audio.muted ? "true" : "false");
+      el("btnSound").textContent = audio.running ? "sound:on" : "sound:off";
+      el("btnMute").textContent = audio.muted ? "mute:on" : "mute:off";
+    }
+    function setMuted(m){
+      audio.muted = m;
+      if (audio.master) audio.master.gain.value = m ? 0.0 : 0.22;
+      setSoundButtons();
+    }
+    function playTick(){
+      if (!audio.ctx) return;
+      const t = audio.ctx.currentTime + 0.001;
+      const osc = audio.ctx.createOscillator();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(1200, t);
+
+      const g = audio.ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.16, t + 0.003);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.055);
+
+      osc.connect(g); g.connect(audio.tickGain);
+      osc.start(t); osc.stop(t + 0.07);
+    }
+    function startAudio(){
+      if (audio.running) return;
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+
+      audio.ctx = new Ctx();
+      audio.master = audio.ctx.createGain();
+      audio.master.gain.value = 0.0;
+      audio.master.connect(audio.ctx.destination);
+
+      const noiseBuf = createNoiseBuffer(audio.ctx, 2.5);
+      const noiseSrc = audio.ctx.createBufferSource();
+      noiseSrc.buffer = noiseBuf;
+      noiseSrc.loop = true;
+
+      const bp = audio.ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = 1800;
+      bp.Q.value = 0.8;
+
+      const ng = audio.ctx.createGain();
+      ng.gain.value = 0.08;
+
+      noiseSrc.connect(bp); bp.connect(ng); ng.connect(audio.master);
+      audio.noiseSrc = noiseSrc; audio.noiseGain = ng;
+
+      const tg = audio.ctx.createGain();
+      tg.gain.value = 0.20;
+      tg.connect(audio.master);
+      audio.tickGain = tg;
+
+      noiseSrc.start();
+
+      const schedule = () => {
+        const now = Date.now();
+        const msToNext = 1000 - (now % 1000);
+        audio.tickTimer = setTimeout(() => { playTick(); schedule(); }, msToNext);
+      };
+      schedule();
+
+      audio.running = true;
+      setSoundButtons();
+    }
+
+    // ===== fullscreen & wake lock =====
+    async function toggleFullscreen(){
+      if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.();
+      else await document.exitFullscreen?.();
+      el("btnFullscreen").setAttribute("aria-pressed", document.fullscreenElement ? "true" : "false");
+    }
+    let wakeLock = null;
+    async function toggleWake(){
+      const btn = el("btnWake");
+      try{
+        if (wakeLock){
+          await wakeLock.release();
+          wakeLock = null;
+          btn.setAttribute("aria-pressed","false");
+          btn.textContent = "awake";
+          return;
         }
-
-        requestAnimationFrame(update);
+        if (!("wakeLock" in navigator)){
+          btn.textContent = "no-wakelock";
+          setTimeout(()=>btn.textContent="awake", 1200);
+          return;
+        }
+        wakeLock = await navigator.wakeLock.request("screen");
+        btn.setAttribute("aria-pressed","true");
+        btn.textContent = "awake:on";
+        wakeLock.addEventListener("release", () => {
+          wakeLock = null;
+          btn.setAttribute("aria-pressed","false");
+          btn.textContent = "awake";
+        });
+      }catch{
+        btn.textContent = "awake:err";
+        setTimeout(()=>btn.textContent="awake", 1200);
+      }
     }
 
-    setInterval(() => {
-        document.getElementById('quote').innerText = quotes[Math.floor(Math.random() * quotes.length)];
-    }, 10000);
+    document.addEventListener("keydown", (e) => {
+      if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+      if (e.key.toLowerCase() === "f") toggleFullscreen();
+      if (e.key.toLowerCase() === "m") { if (!audio.running) startAudio(); setMuted(!audio.muted); }
+      if (e.key.toLowerCase() === "w") toggleWake();
+      // quick tabs:
+      if (e.key.toLowerCase() === "1") setTab("remain");
+      if (e.key.toLowerCase() === "2") setTab("lived");
+      if (e.key.toLowerCase() === "3") setTab("bio");
+      if (e.key.toLowerCase() === "4") setTab("today");
+      if (e.key.toLowerCase() === "5") setTab("system");
+    });
 
-    update();
-</script>
+    // buttons
+    el("btnSound").addEventListener("click", async () => {
+      startAudio();
+      if (audio.ctx?.state === "suspended") await audio.ctx.resume();
+      setSoundButtons();
+    });
+    el("btnMute").addEventListener("click", () => {
+      if (!audio.running) startAudio();
+      setMuted(!audio.muted);
+    });
+    el("btnFullscreen").addEventListener("click", toggleFullscreen);
+    el("btnWake").addEventListener("click", toggleWake);
+
+    // ===== canvas leak physics =====
+    const canvas = el("leakCanvas");
+    const box = el("leakBox");
+    const ctx = canvas.getContext("2d", { alpha:true });
+    const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+
+    let W=0,H=0,DPR=1;
+    function resizeCanvas(){
+      const r = box.getBoundingClientRect();
+      DPR = Math.min(2, window.devicePixelRatio || 1);
+      W = Math.max(1, Math.floor(r.width));
+      H = Math.max(1, Math.floor(r.height));
+      canvas.width = Math.floor(W*DPR);
+      canvas.height = Math.floor(H*DPR);
+      canvas.style.width = W+"px";
+      canvas.style.height = H+"px";
+      ctx.setTransform(DPR,0,0,DPR,0,0);
+      ctx.clearRect(0,0,W,H);
+    }
+    window.addEventListener("resize", () => { resizeCanvas(); }, { passive:true });
+    window.addEventListener("orientationchange", () => setTimeout(resizeCanvas, 150), { passive:true });
+
+    const drops=[];
+    let pool=0, spawnAcc=0, lastT=performance.now();
+    const rand=(a,b)=>a+Math.random()*(b-a);
+
+    function roundRect(x,y,w,h,r,fill){
+      const rr=Math.min(r,w/2,h/2);
+      ctx.beginPath();
+      ctx.moveTo(x+rr,y);
+      ctx.arcTo(x+w,y,x+w,y+h,rr);
+      ctx.arcTo(x+w,y+h,x,y+h,rr);
+      ctx.arcTo(x,y+h,x,y,rr);
+      ctx.arcTo(x,y,x+w,y,rr);
+      ctx.closePath();
+      if(fill) ctx.fill();
+    }
+    function spawnDrop(edgeX){
+      const spread=18;
+      const x=clamp(edgeX+rand(-spread,spread),10,W-10);
+      const y=rand(18,38);
+      const r=rand(1.8,4.4);
+      drops.push({x,y,vx:rand(-22,22),vy:rand(60,170),r,life:rand(0.9,1.6),age:0});
+    }
+    function drawGlowBar(edgeX,intensity){
+      ctx.globalCompositeOperation="source-over";
+      ctx.fillStyle=prefersReducedMotion?"rgba(7,10,16,0.30)":"rgba(7,10,16,0.10)";
+      ctx.fillRect(0,0,W,H);
+
+      const haze=ctx.createLinearGradient(0,0,0,H);
+      haze.addColorStop(0,"rgba(102,217,255,0.09)");
+      haze.addColorStop(0.55,"rgba(178,123,255,0.06)");
+      haze.addColorStop(1,"rgba(255,107,139,0.08)");
+      ctx.fillStyle=haze; ctx.fillRect(0,0,W,H);
+
+      const y=22,h=10;
+      ctx.fillStyle="rgba(0,0,0,0.22)";
+      roundRect(18,y,W-36,h,999,true);
+
+      const grad=ctx.createLinearGradient(18,0,Math.max(19,edgeX),0);
+      grad.addColorStop(0,"rgba(102,217,255,0.95)");
+      grad.addColorStop(0.55,"rgba(178,123,255,0.72)");
+      grad.addColorStop(1,"rgba(255,107,139,0.60)");
+      ctx.fillStyle=grad;
+      roundRect(18,y,Math.max(0,edgeX-18),h,999,true);
+
+      ctx.save();
+      ctx.globalCompositeOperation="lighter";
+      ctx.beginPath();
+      ctx.arc(edgeX,y+h/2,12+intensity*8,0,Math.PI*2);
+      const eg=ctx.createRadialGradient(edgeX,y+h/2,1,edgeX,y+h/2,22+intensity*14);
+      eg.addColorStop(0,"rgba(102,217,255,0.60)");
+      eg.addColorStop(0.6,"rgba(178,123,255,0.18)");
+      eg.addColorStop(1,"rgba(255,107,139,0)");
+      ctx.fillStyle=eg; ctx.fill();
+      ctx.restore();
+    }
+    function updateDrops(dt,edgeX,intensity){
+      const rate=prefersReducedMotion?0:(18+intensity*48);
+      spawnAcc += dt*rate;
+      while(spawnAcc>=1){ spawnDrop(edgeX); spawnAcc-=1; }
+
+      const g=420, bottom=H-18;
+      for(let i=drops.length-1;i>=0;i--){
+        const d=drops[i];
+        d.age += dt;
+        d.vy += g*dt;
+        d.x += d.vx*dt;
+        d.y += d.vy*dt;
+
+        d.vx += (edgeX-d.x)*0.00085;
+
+        if(d.x<10){ d.x=10; d.vx*=-0.25; }
+        if(d.x>W-10){ d.x=W-10; d.vx*=-0.25; }
+
+        if(d.y>=bottom){
+          pool = clamp(pool + d.r*0.0025, 0, 1);
+          drops.splice(i,1);
+          continue;
+        }
+        if(d.age>d.life) drops.splice(i,1);
+      }
+      pool = clamp(pool - dt*0.010, 0, 1);
+    }
+    function drawPool(){
+      const poolH=clamp(pool,0,1)*(H*0.18);
+      if(poolH<=0.5) return;
+
+      ctx.save();
+      ctx.globalCompositeOperation="screen";
+      const g=ctx.createLinearGradient(0,H-poolH,0,H);
+      g.addColorStop(0,"rgba(102,217,255,0.05)");
+      g.addColorStop(0.55,"rgba(178,123,255,0.06)");
+      g.addColorStop(1,"rgba(255,107,139,0.07)");
+      ctx.fillStyle=g;
+      roundRect(14,H-poolH-8,W-28,poolH+16,18,true);
+
+      ctx.globalCompositeOperation="lighter";
+      ctx.strokeStyle="rgba(102,217,255,0.20)";
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.moveTo(18,H-poolH);
+      ctx.lineTo(W-18,H-poolH);
+      ctx.stroke();
+      ctx.restore();
+    }
+    function drawDrops(intensity){
+      ctx.save();
+      ctx.globalCompositeOperation="lighter";
+      for(const d of drops){
+        const a=clamp(1-(d.age/d.life),0,1);
+        const glow=ctx.createRadialGradient(d.x,d.y,0,d.x,d.y,d.r*6);
+        glow.addColorStop(0,`rgba(102,217,255,${(0.18+intensity*0.10)*a})`);
+        glow.addColorStop(0.5,`rgba(178,123,255,${(0.10+intensity*0.06)*a})`);
+        glow.addColorStop(1,"rgba(255,107,139,0)");
+        ctx.fillStyle=glow;
+        ctx.beginPath(); ctx.arc(d.x,d.y,d.r*6,0,Math.PI*2); ctx.fill();
+
+        ctx.fillStyle=`rgba(234,241,255,${(0.12+intensity*0.06)*a})`;
+        ctx.beginPath(); ctx.arc(d.x,d.y,d.r,0,Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // ===== main dates/UI =====
+    const { birth, life, endRaw } = parseQuery();
+    const birthDate = dateFromYMD(birth);
+    const endDate = computeEnd(birth, life, endRaw);
+    const totalMs = Math.max(1, endDate - birthDate);
+
+    el("chipCfg").textContent = endRaw ? `birth=${birth} • end=custom` : `birth=${birth} • +${life}y`;
+    el("birthLine").textContent = birthDate.toLocaleString("ru-RU");
+    el("endLine").textContent = endDate.toLocaleString("ru-RU");
+
+    let lastMega="", lastMegaRight="", lastMegaSub="";
+
+    function updateUI(){
+      const now = new Date();
+
+      const remainMs = clamp(endDate - now, 0, Number.MAX_SAFE_INTEGER);
+      const livedMs  = clamp(now - birthDate, 0, totalMs);
+
+      const fRemain  = clamp(remainMs / totalMs, 0, 1);
+      const fLived   = 1 - fRemain;
+
+      const glow = clamp(Math.pow(1 - fRemain, 0.65), 0, 1);
+      document.documentElement.style.setProperty("--remain", String(fRemain));
+      document.documentElement.style.setProperty("--glow", String(glow));
+
+      // mega remain
+      const megaStr = fmtInt(remainMs);
+      if (megaStr !== lastMega){
+        const mm = el("megaMillis");
+        mm.textContent = megaStr;
+        mm.setAttribute("data-text", megaStr);
+        lastMega = megaStr;
+      }
+      const right = `остаток ${(fRemain*100).toFixed(6)}%`;
+      if (right !== lastMegaRight){ el("megaRight").textContent = right; lastMegaRight = right; }
+      const sub = `Ориентир: ${endDate.toLocaleString("ru-RU")} • сейчас: ${now.toLocaleString("ru-RU")}`;
+      if (sub !== lastMegaSub){ el("megaSub").textContent = sub; lastMegaSub = sub; }
+
+      // calendar remain (big)
+      const cdR = calendarDiffBetween(now, endDate);
+      if (cdR.done){
+        el("countBig").textContent = "Ориентир достигнут.";
+        el("metaLine").innerHTML = `Ориентир: <b>${endDate.toLocaleString("ru-RU")}</b>`;
+      } else {
+        el("countBig").innerHTML =
+          `${cdR.years} лет, ${cdR.months} мес, ${cdR.days} дн ` +
+          `${pad2(cdR.hours)}:${pad2(cdR.minutes)}:${pad2(cdR.seconds)}<span class="ms">.${String(cdR.millis).padStart(3,"0")}</span>`;
+        el("metaLine").innerHTML =
+          `Остаток: <b>${(fRemain*100).toFixed(6)}%</b> • Прожито: <b>${(fLived*100).toFixed(6)}%</b>`;
+      }
+
+      el("pctRemain").textContent = `${(fRemain*100).toFixed(6)}%`;
+      el("pctLived").textContent  = `${(fLived*100).toFixed(6)}%`;
+
+      // remain units
+      el("rMillis").textContent  = fmtInt(remainMs);
+      el("rSeconds").textContent = fmtInt(Math.floor(remainMs / 1000));
+      el("rMinutes").textContent = fmtInt(Math.floor(remainMs / 60000));
+      el("rHours").textContent   = fmtInt(Math.floor(remainMs / 3600000));
+      el("rDays").textContent    = fmtInt(Math.floor(remainMs / 86400000));
+      el("rWeeks").textContent   = fmtInt(Math.floor(remainMs / (7*86400000)));
+
+      // lived units
+      const livedDaysF = livedMs / 86400000;
+      const livedMinF  = livedMs / 60000;
+
+      // calendar lived (for “years/months”)
+      const cdL = calendarDiffBetween(birthDate, now);
+      el("lYears").textContent = fmtInt(cdL.years);
+      el("lMonths").textContent = fmtInt(cdL.years*12 + cdL.months);
+      el("lYearsS").textContent = `${cdL.months} мес + ${cdL.days} дн`;
+      el("lMonthsS").textContent = `${cdL.days} дн + ${pad2(cdL.hours)}:${pad2(cdL.minutes)}`;
+
+      el("lMillis").textContent  = fmtInt(livedMs);
+      el("lSeconds").textContent = fmtInt(Math.floor(livedMs / 1000));
+      el("lMinutes").textContent = fmtInt(Math.floor(livedMs / 60000));
+      el("lHours").textContent   = fmtInt(Math.floor(livedMs / 3600000));
+      el("lDays").textContent    = fmtInt(Math.floor(livedMs / 86400000));
+      el("lWeeks").textContent   = fmtInt(Math.floor(livedMs / (7*86400000)));
+
+      el("lSunrises").textContent = fmtInt(Math.floor(livedDaysF));
+      el("lMoons").textContent = fmtInt(Math.floor(livedDaysF / 29.53059));
+      el("lSeasons").textContent = fmtInt(Math.floor(livedDaysF / 91.3125));
+      el("lMovies").textContent = fmtInt(Math.floor((livedMs / 3600000) / 2));
+
+      // bio estimates (based on params)
+      const minutesLived = livedMinF;
+      const beats = params.heartBpm * minutesLived;
+      const breaths = params.breathsPerMin * minutesLived;
+      const blinks = 15 * minutesLived;
+
+      const sleepHours = params.sleepHoursPerDay * livedDaysF;
+      const sleepDays = sleepHours / 24;
+
+      // MET formulas:
+      // O2 (L/min) = MET * 3.5 ml/kg/min * weight / 1000
+      const o2Lpm = (params.met * 3.5 * params.weightKg) / 1000;
+      const o2L = o2Lpm * minutesLived;
+
+      // kcal/min = MET * 3.5 * kg / 200
+      const kcalPerMin = (params.met * 3.5 * params.weightKg) / 200;
+      const kcal = kcalPerMin * minutesLived;
+
+      // Energy in GJ
+      const joules = kcal * 4184;
+      const gj = joules / 1e9;
+
+      // O2 mass estimate: 1 mol gas ≈ 22.4 L; O2 molar mass 32 g
+      const o2kg = (o2L / 22.4) * 32 / 1000;
+
+      // CO2 estimate via RQ: CO2_L ≈ O2_L * RQ
+      const co2L = o2L * params.rq;
+      const co2kg = (co2L / 22.4) * 44 / 1000;
+
+      // blood pumped
+      const bloodL = params.cardiacOutputLpm * minutesLived;
+
+      // steps + distance
+      const steps = params.stepsPerDay * livedDaysF;
+      const km = (steps * params.stepLenM) / 1000;
+
+      el("bBeats").textContent = fmtInt(beats);
+      el("bBeatsS").textContent = `${params.heartBpm} bpm`;
+
+      el("bBreaths").textContent = fmtInt(breaths);
+      el("bBreathsS").textContent = `${params.breathsPerMin}/min`;
+
+      el("bBlinks").textContent = fmtInt(blinks);
+
+      el("bSleepH").textContent = `${fmtInt(sleepHours)} h`;
+      el("bSleepS").textContent = `${fmtInt(sleepDays)} дней`;
+
+      el("bO2L").textContent = fmtInt(o2L);
+      el("bO2S").textContent = `${fmtFloat(o2Lpm,2)} L/min`;
+
+      el("bO2Kg").textContent = fmtInt(o2kg);
+      el("bKcal").textContent = fmtInt(kcal);
+      el("bKcalS").textContent = `${fmtFloat(kcalPerMin,2)} kcal/min`;
+
+      el("bGJ").textContent = fmtFloat(gj, 2);
+
+      el("bCO2Kg").textContent = fmtInt(co2kg);
+
+      el("bBloodL").textContent = fmtInt(bloodL);
+      el("bBloodS").textContent = `${fmtFloat(params.cardiacOutputLpm,1)} L/min`;
+
+      el("bSteps").textContent = fmtInt(steps);
+      el("bStepsS").textContent = `${fmtInt(params.stepsPerDay)}/day`;
+
+      el("bKm").textContent = fmtInt(km);
+
+      // today
+      const nextMidnight = new Date(now);
+      nextMidnight.setHours(24,0,0,0);
+      const remToday = clamp(nextMidnight - now, 0, 86400000);
+      const fToday = remToday / 86400000;
+      const h = Math.floor(remToday / 3600000);
+      const m = Math.floor((remToday % 3600000) / 60000);
+      const s = Math.floor((remToday % 60000) / 1000);
+      const ms = remToday % 1000;
+      el("todayBig").innerHTML = `${pad2(h)}:${pad2(m)}:${pad2(s)}<span class="ms">.${String(ms).padStart(3,"0")}</span>`;
+      el("todayMeta").innerHTML = `До полуночи: <b>${(fToday*100).toFixed(6)}%</b>`;
+
+      // system
+      el("nowLine").textContent = now.toLocaleString("ru-RU");
+
+      return { fRemain, glow };
+    }
+
+    // ===== loop =====
+    function loop(){
+      const t = performance.now();
+      let dt = (t - lastT) / 1000;
+      lastT = t;
+      dt = clamp(dt, 0, 0.05);
+
+      const { fRemain, glow } = updateUI();
+      const edgeX = clamp(18 + (W-36) * fRemain, 18, W-18);
+
+      drawGlowBar(edgeX, glow);
+      updateDrops(dt, edgeX, glow);
+      drawPool();
+      drawDrops(glow);
+
+      if (audio.running && audio.noiseGain){
+        audio.noiseGain.gain.value = 0.05 + 0.10 * glow;
+      }
+      requestAnimationFrame(loop);
+    }
+
+    // ===== init =====
+    resizeCanvas();
+    setSoundButtons();
+    setTab("remain");
+    setMobilePanel("leak");
+    requestAnimationFrame(loop);
+
+    window.addEventListener("load", () => {
+      setMobilePanel(isMobileMode() ? "leak" : "leak");
+      resizeCanvas();
+    });
+  </script>
 </body>
 </html>
