@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DATA_DEATH_OVERLOAD</title>
+    <style>
+        :root {
+            --red: #ff0000;
+            --dim-red: #330000;
+            --bg: #000;
+            --text: #fff;
+            --border: #222;
+        }
+
+        * { box-sizing: border-box; }
+        body, html {
+            margin: 0; padding: 0;
+            height: 100vh; width: 100vw;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            font-size: 14px;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: auto auto 1fr auto auto;
+            gap: 10px;
+            height: 100vh;
+            padding: 10px;
+        }
+
+        /* ОГРОМНЫЙ СЧЕТЧИК МИЛЛИСЕКУНД */
+        .header-main {
+            grid-column: 1 / -1;
+            background: var(--dim-red);
+            padding: 10px;
+            border: 1px solid var(--red);
+            text-align: center;
+        }
+        .total-ms {
+            font-size: 8vh;
+            font-weight: 900;
+            letter-spacing: -2px;
+            text-shadow: 0 0 20px var(--red);
+        }
+
+        /* МАТРИЦА ОСТАТКА (Годы, месяцы и т.д.) */
+        .time-matrix {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 5px;
+        }
+        .time-unit {
+            border: 1px solid var(--border);
+            padding: 5px;
+            text-align: center;
+        }
+        .unit-val { font-size: 2.5vh; font-weight: bold; color: var(--red); display: block; }
+        .unit-label { font-size: 9px; color: #555; text-transform: uppercase; }
+
+        /* ГРАФИКИ И СЕТКА */
+        .left-panel { grid-column: 1 / 3; display: flex; flex-direction: column; gap: 10px; }
+        .right-panel { grid-column: 3 / 5; display: flex; flex-direction: column; gap: 10px; }
+
+        .card {
+            border: 1px solid var(--border);
+            padding: 8px;
+            background: rgba(10,10,10,0.8);
+        }
+        .card-header { font-size: 10px; color: #666; margin-bottom: 5px; border-bottom: 1px solid #222; }
+
+        /* Сетка недель (сжатая) */
+        .mini-grid {
+            display: grid;
+            grid-template-columns: repeat(52, 1fr);
+            gap: 1px;
+            height: 12vh;
+        }
+        .w-box { background: #111; height: 100%; }
+        .w-box.lived { background: #222; }
+        .w-box.current { background: var(--red); animation: pulse 1s infinite; }
+
+        /* Биометрические прогресс-бары */
+        .bio-bar-row { margin-bottom: 8px; }
+        .bio-label { font-size: 10px; display: flex; justify-content: space-between; margin-bottom: 2px; }
+        .bar-bg { background: #111; height: 6px; width: 100%; }
+        .bar-fill { height: 100%; background: var(--red); box-shadow: 0 0 5px var(--red); }
+
+        /* Цитаты и логи */
+        .logs { font-size: 10px; color: #444; height: 60px; overflow: hidden; }
+        .quote { color: #ff5555; font-style: italic; border-left: 2px solid var(--red); padding-left: 10px; font-size: 1.5vh; }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.2; } 100% { opacity: 1; } }
+
+    </style>
+</head>
+<body>
+
+<div class="layout">
+    <!-- Секция 1: Абсолютный остаток в мс -->
+    <div class="header-main">
+        <div class="unit-label" style="color: var(--red)">Абсолютный системный остаток (MS)</div>
+        <div class="total-ms" id="total-ms">00 000 000 000</div>
+    </div>
+
+    <!-- Секция 2: Подробная матрица времени -->
+    <div class="time-matrix">
+        <div class="time-unit"><span class="unit-val" id="y-val">0</span><span class="unit-label">Лет</span></div>
+        <div class="time-unit"><span class="unit-val" id="m-val">0</span><span class="unit-label">Месяцев</span></div>
+        <div class="time-unit"><span class="unit-val" id="w-val">0</span><span class="unit-label">Недель</span></div>
+        <div class="time-unit"><span class="unit-val" id="d-val">0</span><span class="unit-label">Дней</span></div>
+        <div class="time-unit"><span class="unit-val" id="h-val">0</span><span class="unit-label">Часов</span></div>
+        <div class="time-unit"><span class="unit-val" id="min-val">0</span><span class="unit-label">Минут</span></div>
+        <div class="time-unit"><span class="unit-val" id="sec-val">0</span><span class="unit-label">Секунд</span></div>
+        <div class="time-unit"><span class="unit-val" id="ms-val">000</span><span class="unit-label">Миллисек</span></div>
+    </div>
+
+    <!-- Секция 3: Визуальная сетка недель -->
+    <div class="left-panel">
+        <div class="card">
+            <div class="card-header">LIFE_GRID: 3536 WEEKS (1995-2063)</div>
+            <div class="mini-grid" id="week-grid"></div>
+        </div>
+        <div class="card">
+            <div class="card-header">BIOLOGICAL_RESOURCES_LEFT</div>
+            <div class="bio-bar-row">
+                <div class="bio-label"><span>Сердцебиение (остаток)</span><span id="heart-count">0</span></div>
+                <div class="bar-bg"><div class="bar-fill" id="heart-bar"></div></div>
+            </div>
+            <div class="bio-bar-row">
+                <div class="bio-label"><span>Вдохи (остаток)</span><span id="breath-count">0</span></div>
+                <div class="bar-bg"><div class="bar-fill" id="breath-bar"></div></div>
+            </div>
+            <div class="bio-bar-row">
+                <div class="bio-label"><span>Часы сна (остаток)</span><span id="sleep-count">0</span></div>
+                <div class="bar-bg"><div class="bar-fill" id="sleep-bar"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Секция 4: Дополнительные счетчики -->
+    <div class="right-panel">
+        <div class="card">
+            <div class="card-header">CONSUMPTION_STATISTICS</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <div class="unit-label">Завтраков осталось</div>
+                    <div class="unit-val" id="food-val" style="font-size: 2vh;">0</div>
+                </div>
+                <div>
+                    <div class="unit-label">Остаток 'Лета'</div>
+                    <div class="unit-val" id="summers-val" style="font-size: 2vh;">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="card" style="flex-grow: 1;">
+            <div class="card-header">SYSTEM_DECAY_LOG</div>
+            <div class="logs" id="logs"></div>
+            <div class="quote" id="quote">Инициализация энтропии...</div>
+        </div>
+    </div>
+
+    <!-- Секция 5: Нижняя панель прогресса -->
+    <div style="grid-column: 1 / -1;" class="card">
+        <div class="bio-label">
+            <span>ОБЩИЙ ПРОГРЕСС ИЗНОСА ОРГАНИЗМА</span>
+            <span id="global-percent">0.000000%</span>
+        </div>
+        <div class="bar-bg" style="height: 12px; margin-top: 5px;">
+            <div class="bar-fill" id="global-bar" style="width: 0%;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const birth = new Date('1995-03-14');
+    const death = new Date('2063-03-14');
+    const totalLifeMs = death - birth;
+
+    // Генерируем сетку
+    const grid = document.getElementById('week-grid');
+    const weeksLived = Math.floor((new Date() - birth) / (1000 * 60 * 60 * 24 * 7));
+    for(let i=0; i<68*52; i++) {
+        const d = document.createElement('div');
+        d.className = 'w-box' + (i < weeksLived ? ' lived' : '') + (i === weeksLived ? ' current' : '');
+        grid.appendChild(d);
+    }
+
+    const quotes = [
+        "Твое время просачивается сквозь пальцы.",
+        "Каждая миллисекунда — это минус одна возможность.",
+        "Ты уже никогда не будешь моложе, чем в эту секунду.",
+        "Смерть — единственный честный бухгалтер.",
+        "Пока ты смотришь на экран, жизнь уходит в небытие.",
+        "Хватит анализировать остаток. Начни его тратить."
+    ];
+
+    function update() {
+        const now = new Date();
+        const diff = death - now;
+        if (diff <= 0) return;
+
+        // Расчеты времени
+        const ms = Math.floor(diff % 1000);
+        const sec = Math.floor((diff / 1000) % 60);
+        const min = Math.floor((diff / (1000 * 60)) % 60);
+        const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const weeks = Math.floor(days / 7);
+        const months = Math.floor(days / 30.4375);
+        const years = Math.floor(days / 365.25);
+
+        // Обновление цифр
+        document.getElementById('total-ms').innerText = diff.toLocaleString().replace(/,/g, ' ');
+        document.getElementById('y-val').innerText = years;
+        document.getElementById('m-val').innerText = months;
+        document.getElementById('w-val').innerText = weeks;
+        document.getElementById('d-val').innerText = days;
+        document.getElementById('h-val').innerText = hours;
+        document.getElementById('min-val').innerText = min;
+        document.getElementById('sec-val').innerText = sec;
+        document.getElementById('ms-val').innerText = ms.toString().padStart(3, '0');
+
+        // Биометрия
+        const totalSecondsLeft = diff / 1000;
+        document.getElementById('heart-count').innerText = (totalSecondsLeft * 1.1).toLocaleString(undefined, {maximumFractionDigits:0});
+        document.getElementById('breath-count').innerText = (totalSecondsLeft * 0.2).toLocaleString(undefined, {maximumFractionDigits:0});
+        document.getElementById('sleep-count').innerText = (days * 8).toLocaleString();
+        document.getElementById('food-val').innerText = (days * 3).toLocaleString();
+        document.getElementById('summers-val').innerText = years;
+
+        // Прогресс-бары
+        const percentLived = ((now - birth) / totalLifeMs) * 100;
+        document.getElementById('global-bar').style.width = percentLived + '%';
+        document.getElementById('global-percent').innerText = percentLived.toFixed(6) + '%';
+        
+        // Ресурсные бары (обратные)
+        document.getElementById('heart-bar').style.width = (100 - percentLived) + '%';
+        document.getElementById('breath-bar').style.width = (100 - percentLived) + '%';
+        document.getElementById('sleep-bar').style.width = (100 - percentLived) + '%';
+
+        // Логи
+        if(Math.random() > 0.98) {
+            const l = document.getElementById('logs');
+            const entry = document.createElement('div');
+            entry.innerText = `> EXECUTING_LIFE_DECAY: -${(Math.random()*100).toFixed(0)}ms [OK]`;
+            l.prepend(entry);
+            if(l.children.length > 5) l.lastChild.remove();
+        }
+
+        requestAnimationFrame(update);
+    }
+
+    setInterval(() => {
+        document.getElementById('quote').innerText = quotes[Math.floor(Math.random() * quotes.length)];
+    }, 10000);
+
+    update();
+</script>
+</body>
+</html>
