@@ -1768,6 +1768,8 @@
     el("endLine").textContent = endDate.toLocaleString("ru-RU");
 
     let lastMega="", lastMegaRight="", lastMegaSub="";
+    let uiTimer = null;
+    const uiIntervalMs = 250;
 
     function updateUI(){
       const now = new Date();
@@ -1969,6 +1971,19 @@
       requestAnimationFrame(loop);
     }
 
+    function startUiTimer(){
+      if (uiTimer) return;
+      uiTimer = setInterval(() => {
+        updateUI();
+      }, uiIntervalMs);
+    }
+
+    function stopUiTimer(){
+      if (!uiTimer) return;
+      clearInterval(uiTimer);
+      uiTimer = null;
+    }
+
     // ===== init =====
     resizeCanvas();
     setSoundButtons();
@@ -1976,6 +1991,16 @@
     setMode("hardcore");
     setMobilePanel("leak");
     requestAnimationFrame(loop);
+
+    document.addEventListener("visibilitychange", () => {
+      lastT = performance.now();
+      updateUI();
+      if (document.hidden){
+        startUiTimer();
+      } else {
+        stopUiTimer();
+      }
+    });
 
     window.addEventListener("load", () => {
       setMobilePanel(isMobileMode() ? "leak" : "leak");
